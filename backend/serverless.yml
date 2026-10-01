@@ -9,27 +9,29 @@ provider:
   environment:
     ENVIRONMENT: ${self:provider.stage}
 
-functions:
-  hello:
-    handler: src/handlers/hello.handler
-    events:
-      - http:
-          path: hello
-          method: get
-          cors: true
+custom:
+  prune:
+    automatic: true
+    number: 1
 
+functions:
   users:
-    handler: src/handlers/users.handler
+    handler: src/handlers/users/usersHandler.handler
     events:
-      - http:
-          path: users
-          method: get
-          cors: true
       - http:
           path: users
           method: post
+          cors: true
+      - http:
+          path: users
+          method: get
+          cors: true
+      - http:
+          path: users/{idUsuario}
+          method: get
           cors: true
 
 plugins:
   - serverless-offline
   - serverless-dotenv-plugin
+  - serverless-prune-plugin
