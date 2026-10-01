@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Cerca</string>
+    <string name="title_activity_main">Cerca</string>
+    <string name="package_name">cl.udd.cerca</string>
+    <string name="custom_url_scheme">cl.udd.cerca</string>
+</resources>

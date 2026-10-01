@@ -1,6 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { createSeed } from '../data/seed'
-import { registerProfile } from '../api/client'
 import { nearbyActivityId } from '../lib/selectors'
 
 const STATE_KEY = 'cerca-state-v1'
@@ -63,11 +62,22 @@ function useClock() {
     setOffset(0)
   }, [])
 
-  return { now, offset, simulated: offset !== 0, resetClock }
+  /** Fija la hora del día ("HH:MM") como si fuera ahora. Devuelve la hora simulada. */
+  const setClock = useCallback((hhmm) => {
+    const [h, m] = hhmm.split(':').map(Number)
+    const target = new Date()
+    target.setHours(h, m, 0, 0)
+    const off = target.getTime() - Date.now()
+    save(OFFSET_KEY, off)
+    setOffset(off)
+    return target
+  }, [])
+
+  return { now, offset, simulated: offset !== 0, resetClock, setClock }
 }
 
 export function AppProvider({ children }) {
-  const { now, offset, simulated, resetClock } = useClock()
+  const { now, offset, simulated, resetClock, setClock } = useClock()
   const [state, setState] = useState(() => load(STATE_KEY, null) || createSeed(new Date(Date.now() + load(OFFSET_KEY, 0))))
   const [session, setSession] = useState(() => load(SESSION_KEY, null))
   const offsetRef = useRef(offset)
@@ -75,8 +85,13 @@ export function AppProvider({ children }) {
   // Marca de tiempo según el reloj de la app (respeta la hora simulada).
   const stamp = useCallback(() => new Date(Date.now() + offsetRef.current).toISOString(), [])
 
-  useEffect(() => save(STATE_KEY, state), [state])
-  useEffect(() => save(SESSION_KEY, session), [session])
+  // Los efectos no deben devolver valores: React los trata como función de limpieza.
+  useEffect(() => {
+    save(STATE_KEY, state)
+  }, [state])
+  useEffect(() => {
+    save(SESSION_KEY, session)
+  }, [session])
 
   const update = useCallback((fn) => setState((s) => ({ ...s, ...fn(s) })), [])
 
@@ -95,11 +110,17 @@ export function AppProvider({ children }) {
 
   const selectElder = useCallback((id) => setSession((s) => ({ ...s, selectedElderId: id })), [])
 
-  const resetDemo = useCallback(() => {
+  /** Reinicia los datos de ejemplo como si fueran las `hhmm` de hoy (sin hora: la real). */
+  const resetDemo = useCallback((hhmm) => {
+    if (hhmm) {
+      setState(createSeed(setClock(hhmm)))
+      setSession(null)
+      return
+    }
     resetClock()
     setState(createSeed(new Date()))
     setSession(null)
-  }, [resetClock])
+  }, [resetClock, setClock])
 
   const actions = useMemo(
     () => ({
@@ -153,14 +174,8 @@ export function AppProvider({ children }) {
 
       removeMedication: (id) => update((s) => ({ medications: s.medications.filter((m) => m.id !== id) })),
 
-      addElder: async (data) => {
-        // Se registra en el backend (POST /users); si no está disponible, queda local.
-        const remote = await registerProfile({
-          nombreCompleto: `${data.nombre} ${data.apellido}`,
-          rut: data.rut,
-          fechaNacimiento: data.fechaNacimiento,
-        })
-        const elder = { id: remote?.idUsuario || uid('e'), color: 'blue', ...data }
+      addElder: (data) => {
+        const elder = { id: uid('e'), color: 'blue', ...data }
         update((s) => ({ elders: [...s.elders, elder] }))
         return elder
       },

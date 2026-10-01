@@ -3,7 +3,7 @@ import { Icon } from '../../components/Icon'
 import { Avatar, Chip } from '../../components/common'
 import { edad, toISODate } from '../../lib/dates'
 import { daySummary, dosesForDay, lowStock } from '../../lib/selectors'
-import { BellButton, useFamily } from './FamilyShell'
+import { BellButton, resetTabTransition, useFamily } from './FamilyShell'
 
 function status(state, elderId, now) {
   const doses = dosesForDay(state, elderId, toISODate(now), now)
@@ -18,6 +18,7 @@ export default function ElderPicker() {
   const navigate = useNavigate()
 
   const pick = (id) => {
+    resetTabTransition()
     selectElder(id)
     navigate('/familiar/resumen')
   }

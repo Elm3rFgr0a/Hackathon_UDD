@@ -30,6 +30,10 @@
   --sec-soft: var(--pri-soft);
   --sec-dark: var(--pri-dark);
 
+  /* márgenes del sistema (barra de estado y de gestos) en la app Android */
+  --sat: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --sab: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+
   --font: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --shadow-pop: 0 12px 32px rgba(27, 36, 48, 0.18);
 
@@ -71,6 +75,7 @@ h1, h2, h3 { font-weight: 700; }
   display: flex;
   flex-direction: column;
   position: relative;
+  overflow-x: clip; /* el contenido que se desliza no genera scroll horizontal */
 }
 @media (min-width: 520px) {
   .app-frame { box-shadow: 0 0 48px rgba(27, 36, 48, 0.1); }
@@ -86,7 +91,7 @@ h1, h2, h3 { font-weight: 700; }
 .demo-clock button { color: #fff; text-decoration: underline; min-height: 32px; padding: 0 6px; }
 
 /* ============ Login ============ */
-.login { flex: 1; padding: 64px 24px 32px; display: flex; flex-direction: column; gap: 36px; }
+.login { flex: 1; padding: calc(64px + var(--sat)) 24px calc(32px + var(--sab)); display: flex; flex-direction: column; gap: 36px; }
 .brand { display: flex; flex-direction: column; gap: 14px; }
 .brand__mark {
   width: 64px; height: 64px; border-radius: 20px; background: var(--pri); color: #fff;
@@ -122,10 +127,14 @@ h1, h2, h3 { font-weight: 700; }
   border: 1.5px solid var(--line-strong); font-size: 15px; text-align: left; line-height: 1.2;
 }
 .demo-accounts__row button strong { display: block; font-size: 16px; }
+.demo-time { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.demo-time label { font-size: 14px; font-weight: 700; flex-basis: 100%; }
+.demo-time input { min-height: 48px; padding: 0 12px; border: 1.5px solid var(--line-strong); border-radius: 12px; background: #fff; font-size: 16px; }
+.demo-time button { flex: 1; min-height: 48px; padding: 0 12px; border-radius: 12px; background: var(--ink); color: #fff; font-size: 15px; font-weight: 700; }
 .link-btn { font-size: 15px; color: var(--muted); text-decoration: underline; min-height: 44px; align-self: center; }
 
 /* ============ Adulto mayor ============ */
-.e-page { flex: 1; padding: 20px 20px 36px; display: flex; flex-direction: column; gap: 20px; }
+.e-page { flex: 1; padding: calc(20px + var(--sat)) 20px calc(36px + var(--sab)); display: flex; flex-direction: column; gap: 20px; }
 
 .e-back {
   align-self: flex-start; display: inline-flex; align-items: center; gap: 10px;
@@ -277,7 +286,7 @@ h1, h2, h3 { font-weight: 700; }
 /* ============ Familiar ============ */
 .f-bar {
   position: sticky; top: 0; z-index: 10;
-  display: flex; align-items: center; gap: 10px; min-height: 64px; padding: 8px 8px 8px 16px;
+  display: flex; align-items: center; gap: 10px; min-height: 64px; padding: calc(8px + var(--sat)) 8px 8px 16px;
   background: #fff; border-bottom: 1px solid var(--line);
 }
 .f-bar__title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
@@ -297,14 +306,24 @@ h1, h2, h3 { font-weight: 700; }
 }
 .f-switch:hover { background: var(--pri-soft); }
 
-.f-main { flex: 1; padding: 20px 16px 28px; display: flex; flex-direction: column; gap: 16px; }
+.f-main {
+  flex: 1; padding: 20px 16px calc(28px + var(--sab)); display: flex; flex-direction: column; gap: 16px;
+  touch-action: pan-y;
+}
+.f-main--from-right { animation: tab-from-right 0.24s ease-out; }
+.f-main--from-left { animation: tab-from-left 0.24s ease-out; }
+@keyframes tab-from-right { from { transform: translateX(28%); opacity: 0.4; } to { transform: none; opacity: 1; } }
+@keyframes tab-from-left { from { transform: translateX(-28%); opacity: 0.4; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .f-main--from-right, .f-main--from-left { animation: none; }
+}
 .f-hello { padding: 48px 20px 4px; display: flex; flex-direction: column; gap: 6px; }
 .f-hello span { font-size: 15px; color: var(--muted); }
 .f-hello h1 { font-size: 28px; line-height: 1.15; }
 
 .f-nav {
   position: sticky; bottom: 0; z-index: 10; display: flex;
-  background: #fff; border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom);
+  background: #fff; border-top: 1px solid var(--line); padding-bottom: var(--sab);
 }
 .f-nav a {
   flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -493,7 +512,7 @@ h1, h2, h3 { font-weight: 700; }
 
 /* Toast (notificación en primer plano) */
 .toast-wrap {
-  position: fixed; top: 10px; left: 50%; z-index: 70; transform: translateX(-50%);
+  position: fixed; top: calc(10px + var(--sat)); left: 50%; z-index: 70; transform: translateX(-50%);
   width: min(460px, calc(100% - 20px)); animation: toast-in 0.25s ease-out;
 }
 @keyframes toast-in { from { opacity: 0; transform: translate(-50%, -16px); } to { opacity: 1; transform: translate(-50%, 0); } }
@@ -513,7 +532,7 @@ h1, h2, h3 { font-weight: 700; }
 }
 .sheet {
   width: min(480px, 100%); max-height: 92dvh; overflow: auto; background: var(--bg);
-  border-radius: 20px 20px 0 0; padding: 8px 16px 24px; display: flex; flex-direction: column; gap: 16px;
+  border-radius: 20px 20px 0 0; padding: 8px 16px calc(24px + var(--sab)); display: flex; flex-direction: column; gap: 16px;
 }
 .sheet__grip { width: 40px; height: 4px; border-radius: 2px; background: var(--line-strong); align-self: center; margin: 4px 0; }
 .sheet__head { display: flex; align-items: center; justify-content: space-between; }

@@ -54,8 +54,20 @@ Cuentas de prueba (contraseña `1234`): `rosa@cerca.cl`, `hector@cerca.cl` (adul
 
 - Los datos de demostración viven en `src/data/seed.js` y se guardan en `localStorage`. En el login se pueden restablecer.
 - Las notificaciones se calculan en `src/lib/notifications.js` (1 h antes y 1 h después de cada actividad, remedios, consultas, stock bajo, etc.).
-- Para probarlas, simula la hora con `?hora=13:02` en la URL. Con `?hora=real` vuelve a la hora real.
-- Al añadir un adulto mayor se llama a `POST /users` del backend; si la API no responde, se guarda solo en el navegador.
+- La hora de la demo se fija desde el login ("Hora de la demo" → "Aplicar y reiniciar"). En el navegador también sirve `?hora=13:02` en la URL.
+- Prototipo sin backend: todo se guarda en el dispositivo.
+
+### Generar el APK (Android)
+
+Requiere JDK 17+ y el SDK de Android (`ANDROID_HOME`).
+
+```bash
+cd frontend
+npm install
+npm run android:apk     # compila la web, la sincroniza y arma el APK
+```
+
+Queda en `frontend/android/app/build/outputs/apk/debug/app-debug.apk`. Para abrirlo en Android Studio: `npm run android:open`.
 
 ## Deployment
 
@@ -93,13 +105,13 @@ Luego sube la carpeta `dist/` a S3.
 **Frontend:**
 - React 18
 - Vite
-- Axios
+- React Router
+- Capacitor (APK Android)
 
 ## 📌 Notas
 
 - Asegúrate de tener Node.js 18+ instalado
 - El backend usa `serverless-offline` para desarrollo local
-- El frontend proxy las requests a `/api/*` al backend
 
 ## 👨‍💻 Autor
 

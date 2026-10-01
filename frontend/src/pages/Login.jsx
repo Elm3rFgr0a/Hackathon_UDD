@@ -10,7 +10,8 @@ const DEMO = [
 ]
 
 export default function Login() {
-  const { login, resetDemo } = useApp()
+  const { login, resetDemo, simulated, now } = useApp()
+  const [hora, setHora] = useState(() => `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -70,7 +71,14 @@ export default function Login() {
             </button>
           ))}
         </div>
-        <button type="button" className="link-btn" onClick={resetDemo}>Restablecer datos de demostración</button>
+        <div className="demo-time">
+          <label htmlFor="hora">Hora de la demo</label>
+          <input id="hora" type="time" value={hora} onChange={(e) => setHora(e.target.value)} />
+          <button type="button" onClick={() => hora && resetDemo(hora)}>Aplicar y reiniciar</button>
+        </div>
+        <button type="button" className="link-btn" onClick={() => resetDemo()}>
+          {simulated ? 'Volver a la hora real y reiniciar datos' : 'Restablecer datos de demostración'}
+        </button>
       </section>
     </main>
   )

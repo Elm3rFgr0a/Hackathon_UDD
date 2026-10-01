@@ -2,16 +2,24 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0B5F66" />
     <meta name="description" content="Cerca: remedios, agenda y acompañamiento familiar para personas mayores." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/favicon.svg" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
     <title>Cerca</title>
+    <script>
+      // Si algo falla al arrancar, lo muestra en pantalla en vez de dejarla en blanco.
+      function showBootError(msg) {
+        var root = document.getElementById('root')
+        if (!root || root.childElementCount) return
+        root.innerHTML = '<div style="padding:24px;font:16px system-ui,sans-serif;color:#7a1212;background:#fbdedc"><b>No se pudo iniciar la app</b><pre style="white-space:pre-wrap;margin-top:12px;font-size:13px"></pre></div>'
+        root.querySelector('pre').textContent = msg
+      }
+      window.addEventListener('error', function (e) { showBootError(String(e.message || e.error) + (e.filename ? '\n' + e.filename + ':' + e.lineno + ':' + e.colno : '') + (e.error && e.error.stack ? '\n\n' + e.error.stack : '') + '\n\nWebView: ' + navigator.userAgent) })
+      window.addEventListener('unhandledrejection', function (e) { showBootError(String(e.reason)) })
+    </script>
   </head>
   <body>
     <div id="root"></div>

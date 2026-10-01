@@ -15,14 +15,13 @@ export default function ElderForm() {
     () => existing || { nombre: '', apellido: '', rut: '', fechaNacimiento: '', residencia: 'Vive en casa', telefono: '+569' },
   )
   const [errors, setErrors] = useState({})
-  const [saving, setSaving] = useState(false)
 
   if (me.permiso !== 'admin') return <Navigate to="/familiar/personas" replace />
   if (elderId && !existing) return <Navigate to="/familiar/personas" replace />
 
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
 
-  const submit = async (e) => {
+  const submit = (e) => {
     e.preventDefault()
     const errs = {}
     if (!form.nombre.trim()) errs.nombre = 'Requerido.'
@@ -36,8 +35,7 @@ export default function ElderForm() {
       updateElder(existing.id, data)
       navigate('/familiar/personas')
     } else {
-      setSaving(true)
-      const elder = await addElder(data)
+      const elder = addElder(data)
       selectElder(elder.id)
       navigate('/familiar/resumen')
     }
@@ -75,8 +73,8 @@ export default function ElderForm() {
         {!existing && (
           <p className="f-help">Le enviaremos un acceso a su correo o teléfono para que use la app con letra grande.</p>
         )}
-        <button type="submit" className="btn btn--primary" disabled={saving}>
-          <Icon name="check" size={20} stroke={2.5} />{saving ? 'Guardando…' : 'Guardar'}
+        <button type="submit" className="btn btn--primary">
+          <Icon name="check" size={20} stroke={2.5} />Guardar
         </button>
       </form>
     </FamilyShell>
