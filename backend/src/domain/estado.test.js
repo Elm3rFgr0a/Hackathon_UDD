@@ -6,8 +6,9 @@ const { buildSeedItems } = require('../seed/seed');
 // 1 de octubre de 2026, 12:35 en Chile (la hora del diseño).
 const NOW = new Date('2026-10-01T15:35:00Z');
 
+// GET /estado consulta solo la partición del grupo del token.
 const partir = (items) => ({
-  grupo: items.filter((i) => i.PK.startsWith('GRUPO#')),
+  grupo: items.filter((i) => i.PK === 'GRUPO#g-munoz'),
   cerca: items.filter((i) => i.PK === 'CERCA'),
 });
 

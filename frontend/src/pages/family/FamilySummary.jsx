@@ -2,11 +2,12 @@ import { Link } from 'react-router-dom'
 import { Icon } from '../../components/Icon'
 import { Chip } from '../../components/common'
 import { daysBetween, enCuanto, relativeDay, toISODate } from '../../lib/dates'
-import { activityStatus, dosesForDay, eventsOn, lowStock, personName, upcomingAppointments } from '../../lib/selectors'
+import { MOTIVOS_CORTOS, activityStatus, dosesForDay, eventsOn, lowStock, personName, upcomingAppointments } from '../../lib/selectors'
 import FamilyShell, { useFamily } from './FamilyShell'
 
 export function DoseChip({ dose, now }) {
   if (dose.status === 'taken') return <Chip tone="ok" icon="check">Tomado</Chip>
+  if (dose.status === 'omitted') return <Chip tone="far" icon="x">No se dio · {MOTIVOS_CORTOS[dose.omission.motivo] ?? 'ELEAM'}</Chip>
   if (dose.status === 'missed') return <Chip tone="warn" icon="alert">No confirmado</Chip>
   if (dose.status === 'now') return <Chip tone="warn" icon="clock">{dose.when > now ? enCuanto(now, dose.when) : 'Pendiente'}</Chip>
   return <Chip tone="muted" icon="clock">Programado</Chip>

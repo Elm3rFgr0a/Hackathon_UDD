@@ -20,6 +20,12 @@ provider:
     TABLE_NAME: ${self:custom.tableName}
     JWT_SECRET: ${env:JWT_SECRET}
     APP_TZ: America/Santiago
+    # WhatsApp con Twilio (fase D). Sin estas tres variables, las alertas se simulan.
+    TWILIO_ACCOUNT_SID: ${env:TWILIO_ACCOUNT_SID, ''}
+    TWILIO_AUTH_TOKEN: ${env:TWILIO_AUTH_TOKEN, ''}
+    TWILIO_WHATSAPP_FROM: ${env:TWILIO_WHATSAPP_FROM, ''}
+    # Teléfono de la demo: si está, todas las alertas van a ese número.
+    WHATSAPP_DEMO_TO: ${env:WHATSAPP_DEMO_TO, ''}
   iam:
     role:
       statements:
@@ -47,6 +53,7 @@ custom:
 package:
   patterns:
     - '!**/*.test.js'
+    - '!test/**'
     - '!.env*'
     - '!Dockerfile'
 
@@ -72,8 +79,23 @@ resources:
             AttributeType: S
           - AttributeName: SK
             AttributeType: S
+          - AttributeName: GSI1PK
+            AttributeType: S
+          - AttributeName: GSI1SK
+            AttributeType: S
         KeySchema:
           - AttributeName: PK
             KeyType: HASH
           - AttributeName: SK
             KeyType: RANGE
+        # Vista ELEAM: personas y remedios de residentes de un establecimiento,
+        # de cualquier grupo familiar (GSI1PK = ESTAB#<id>).
+        GlobalSecondaryIndexes:
+          - IndexName: GSI1
+            KeySchema:
+              - AttributeName: GSI1PK
+                KeyType: HASH
+              - AttributeName: GSI1SK
+                KeyType: RANGE
+            Projection:
+              ProjectionType: ALL

@@ -1,3 +1,21 @@
+/* ============ Marca ============ */
+/*
+ * Roca Two Bold, solo para el nombre de la app ("Autia"). Es una fuente
+ * comercial: no viene en el repo. Se usa si está instalada en el equipo o si se
+ * copia su archivo a public/fonts/ (RocaTwo-Bold.woff2 u .otf). Si no, el nombre
+ * se ve con la fuente de la app.
+ */
+@font-face {
+  font-family: 'Roca Two';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: local('Roca Two Bold'), local('RocaTwo-Bold'), local('Roca Two'),
+    url('/fonts/RocaTwo-Bold.woff2') format('woff2'),
+    url('/fonts/RocaTwo-Bold.otf') format('opentype');
+}
+.wordmark { font-family: 'Roca Two', var(--font); font-weight: 700; letter-spacing: 0.01em; }
+
 /* ============ Tokens ============ */
 :root {
   --bg: #fbf8f2;
@@ -34,6 +52,7 @@
   --sat: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
   --sab: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
 
+  --brand: #8c1b47;
   --font: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
   --shadow-pop: 0 12px 32px rgba(27, 36, 48, 0.18);
 
@@ -93,11 +112,8 @@ h1, h2, h3 { font-weight: 700; }
 /* ============ Login ============ */
 .login { flex: 1; padding: calc(64px + var(--sat)) 24px calc(32px + var(--sab)); display: flex; flex-direction: column; gap: 36px; }
 .brand { display: flex; flex-direction: column; gap: 14px; }
-.brand__mark {
-  width: 64px; height: 64px; border-radius: 20px; background: var(--pri); color: #fff;
-  display: grid; place-items: center; --icon-cut: var(--pri);
-}
-.brand h1 { font-size: 44px; line-height: 1; }
+.brand__logo { width: 80px; height: 80px; object-fit: contain; }
+.brand h1 { font-size: 48px; line-height: 1; color: var(--brand); }
 .brand p { font-size: 20px; color: var(--muted); }
 .login form { display: flex; flex-direction: column; gap: 20px; }
 .login-field { display: flex; flex-direction: column; gap: 8px; }
@@ -495,16 +511,15 @@ h1, h2, h3 { font-weight: 700; }
   min-height: 26px; padding: 2px 10px; border-radius: 13px; font-size: 12px; font-weight: 700;
   background: var(--sec-soft); color: var(--sec-dark);
 }
-.app-glyph {
-  width: 20px; height: 20px; border-radius: 6px; background: var(--pri); color: #fff;
-  display: grid; place-items: center; flex-shrink: 0;
-}
+.app-glyph { width: 20px; height: 20px; flex-shrink: 0; object-fit: contain; }
+.notice__app { font-size: 13px; color: var(--brand); }
 
 /* Avisos grandes (adulto mayor) */
 .notice--big { border-radius: 24px; padding: 20px; gap: 12px; border-width: 2px; }
 .notice--big.notice--unread { border-color: var(--sec); box-shadow: inset 6px 0 0 var(--sec); }
 .notice--big .notice__head { font-size: 16px; }
-.notice--big .app-glyph { width: 28px; height: 28px; border-radius: 8px; }
+.notice--big .app-glyph { width: 28px; height: 28px; }
+.notice--big .notice__app { font-size: 17px; }
 .notice--big .notice__title { font-size: 26px; }
 .notice--big .notice__body { font-size: 21px; }
 .notice--big .notice__resolved { font-size: 20px; color: var(--sec); }
@@ -537,3 +552,29 @@ h1, h2, h3 { font-weight: 700; }
 .sheet__grip { width: 40px; height: 4px; border-radius: 2px; background: var(--line-strong); align-self: center; margin: 4px 0; }
 .sheet__head { display: flex; align-items: center; justify-content: space-between; }
 .sheet__head h2 { font-size: 20px; }
+
+/* ============ ELEAM ============ */
+.eleam-horas { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.eleam-horas button {
+  flex: 0 0 auto; min-width: 84px; min-height: 56px; padding: 6px 12px; border-radius: 12px;
+  background: #fff; border: 1.5px solid var(--line); display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.eleam-horas button[aria-pressed='true'] { background: var(--pri); border-color: var(--pri); color: #fff; }
+.eleam-horas__h { font-size: 17px; font-weight: 700; }
+.eleam-horas__n { font-size: 12px; }
+.eleam-ok {
+  display: flex; gap: 12px; align-items: flex-start; padding: 14px 16px; border-radius: 16px;
+  background: var(--pri-soft); color: var(--pri-dark); font-size: 15px; line-height: 1.4;
+}
+.eleam-falla {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; min-height: 40px; padding: 0 12px;
+  border-radius: 20px; border: 1.5px solid var(--line-strong); font-size: 14px; font-weight: 700; color: var(--muted); background: #fff;
+}
+.eleam-falla--on { background: var(--far-bg); border-color: var(--far-line); color: var(--far-ink); }
+.eleam-motivo { padding: 0 0 12px; }
+.eleam-motivo label { font-size: 13px; }
+.eleam { padding-bottom: 120px; }
+.eleam-accion {
+  position: sticky; bottom: 0; z-index: 10; display: flex; flex-direction: column; gap: 6px;
+  padding: 12px 16px calc(12px + var(--sab)); background: #fff; border-top: 1px solid var(--line);
+}

@@ -1,8 +1,8 @@
 const express = require('express');
 const { HttpError, asyncHandler } = require('../http');
 const { deletePartition, deleteMany, putMany } = require('../db/repo');
-const { grupoPK, CERCA_PK } = require('../db/keys');
-const { SEED_GRUPO_ID, buildSeedItems, seedAccountKeys } = require('../seed/seed');
+const { CERCA_PK } = require('../db/keys');
+const { buildSeedItems, seedAccountKeys, seedPartitions } = require('../seed/seed');
 
 const router = express.Router();
 
@@ -23,7 +23,7 @@ router.post('/demo/reset', asyncHandler(async (req, res) => {
 
   const items = await buildSeedItems(now, { relojOffsetMs, reseteadoEn: reseteadoEn.toISOString() });
   await Promise.all([
-    deletePartition(grupoPK(SEED_GRUPO_ID)),
+    ...seedPartitions().map(deletePartition),
     deletePartition(CERCA_PK),
     deleteMany(seedAccountKeys()),
   ]);

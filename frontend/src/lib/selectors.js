@@ -12,9 +12,20 @@ export const medsOf = (s, elderId) => s.medications.filter((m) => m.elderId === 
 
 export const doseKey = (medId, iso, time) => `${medId}|${iso}|${time}`
 
+/** Motivos con que el personal de un ELEAM registra una dosis no dada. */
+export const MOTIVOS_OMISION = {
+  rechazo: 'Rechazó el remedio',
+  dormido: 'Estaba dormido',
+  ausente: 'No estaba en el establecimiento',
+  sin_stock: 'No quedaba stock',
+  otro: 'Otro motivo',
+}
+export const MOTIVOS_CORTOS = { rechazo: 'Rechazó', dormido: 'Dormido', ausente: 'Ausente', sin_stock: 'Sin stock', otro: 'Otro' }
+
 /**
  * Estado de cada toma del día:
  *  taken   → confirmada
+ *  omitted → el ELEAM registró que no se dio (con motivo)
  *  now     → desde 30 min antes hasta 60 min después de la hora
  *  missed  → pasó más de 1 hora sin confirmar
  *  later   → todavía falta
@@ -26,15 +37,17 @@ export function dosesForDay(s, elderId, iso, now) {
       const key = doseKey(med.id, iso, time)
       const when = at(iso, time)
       const log = s.intakes[key]
+      const omission = s.omissions?.[key] ?? null
       let status
       if (log) status = 'taken'
+      else if (omission) status = 'omitted'
       else {
         const diff = (now - when) / MINUTE
         if (diff < -30) status = 'later'
         else if (diff <= 60) status = 'now'
         else status = 'missed'
       }
-      list.push({ key, med, iso, time, when, status, takenAt: log ? new Date(log.at) : null })
+      list.push({ key, med, iso, time, when, status, takenAt: log ? new Date(log.at) : null, omission })
     }
   }
   return list.sort((a, b) => a.when - b.when)

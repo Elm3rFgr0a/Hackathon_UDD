@@ -81,6 +81,23 @@ class Check {
     });
   }
 
+  /**
+   * Teléfono para WhatsApp, normalizado a formato internacional (+569…).
+   * Acepta espacios, guiones y paréntesis; un celular chileno de 9 dígitos recibe +56.
+   */
+  telefono(k, { req = false } = {}) {
+    const normalizar = (v) => {
+      const limpio = String(v).replace(/[\s()-]/g, '');
+      return /^9\d{8}$/.test(limpio) ? `+56${limpio}` : limpio;
+    };
+    return this.campo(k, {
+      req,
+      test: (v) => typeof v === 'string' && /^\+\d{8,15}$/.test(normalizar(v)),
+      msg: 'debe ser un teléfono como +56 9 1234 5678',
+      map: normalizar,
+    });
+  }
+
   /** Lista de ids sin repetir. */
   ids(k, { min = 1, max = 20 } = {}) {
     return this.campo(k, {

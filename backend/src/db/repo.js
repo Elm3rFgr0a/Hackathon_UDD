@@ -23,22 +23,31 @@ async function putItem(item, { ifNotExists = false } = {}) {
   }));
 }
 
-/** Actualiza los campos dados de un registro que debe existir. Devuelve el registro actualizado. */
+/**
+ * Actualiza los campos dados de un registro que debe existir. Los campos con
+ * valor `undefined` se eliminan del registro. Devuelve el registro actualizado.
+ */
 async function updateFields(key, fields) {
   const names = {};
   const values = {};
-  const sets = Object.entries(fields).map(([k, v], i) => {
+  const sets = [];
+  const removes = [];
+  Object.entries(fields).forEach(([k, v], i) => {
     names[`#f${i}`] = k;
-    values[`:v${i}`] = v;
-    return `#f${i} = :v${i}`;
+    if (v === undefined) removes.push(`#f${i}`);
+    else {
+      values[`:v${i}`] = v;
+      sets.push(`#f${i} = :v${i}`);
+    }
   });
+  const expr = [sets.length && `SET ${sets.join(', ')}`, removes.length && `REMOVE ${removes.join(', ')}`].filter(Boolean).join(' ');
   const res = await doc.send(new UpdateCommand({
     TableName: TABLE,
     Key: key,
-    UpdateExpression: `SET ${sets.join(', ')}`,
+    UpdateExpression: expr,
     ConditionExpression: 'attribute_exists(PK)',
     ExpressionAttributeNames: names,
-    ExpressionAttributeValues: values,
+    ...(sets.length && { ExpressionAttributeValues: values }),
     ReturnValues: 'ALL_NEW',
   }));
   return res.Attributes;
@@ -84,6 +93,41 @@ async function queryPartition(pk) {
   return items;
 }
 
+/** Registros de una partición cuya SK empieza con `prefix` (por ejemplo, las tomas de un día). */
+async function queryPrefix(pk, prefix) {
+  const items = [];
+  let ExclusiveStartKey;
+  do {
+    const res = await doc.send(new QueryCommand({
+      TableName: TABLE,
+      KeyConditionExpression: 'PK = :pk AND begins_with(SK, :p)',
+      ExpressionAttributeValues: { ':pk': pk, ':p': prefix },
+      ExclusiveStartKey,
+    }));
+    items.push(...res.Items);
+    ExclusiveStartKey = res.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return items;
+}
+
+/** Registros del índice GSI1 con la partición dada (vista ELEAM). */
+async function queryIndex(gsiPk) {
+  const items = [];
+  let ExclusiveStartKey;
+  do {
+    const res = await doc.send(new QueryCommand({
+      TableName: TABLE,
+      IndexName: 'GSI1',
+      KeyConditionExpression: 'GSI1PK = :pk',
+      ExpressionAttributeValues: { ':pk': gsiPk },
+      ExclusiveStartKey,
+    }));
+    items.push(...res.Items);
+    ExclusiveStartKey = res.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return items;
+}
+
 /** BatchWrite en bloques de 25, reintentando lo que DynamoDB no procesó. */
 async function batchWrite(requests) {
   for (let i = 0; i < requests.length; i += BATCH_SIZE) {
@@ -109,5 +153,5 @@ async function deletePartition(pk) {
 
 module.exports = {
   isConditionFailed, cancellationCodes,
-  getItem, getCuenta, queryPartition, putItem, updateFields, deleteItem, transact, putMany, deleteMany, deletePartition,
+  getItem, getCuenta, queryPartition, queryPrefix, queryIndex, putItem, updateFields, deleteItem, transact, putMany, deleteMany, deletePartition,
 };

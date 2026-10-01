@@ -1,4 +1,4 @@
-// Cliente de la API de Cerca (backend/). La URL viene de VITE_API_URL y queda
+// Cliente de la API de Autia (backend/). La URL viene de VITE_API_URL y queda
 // fija en el build (también dentro del APK). Si está vacía, la app funciona en
 // modo local, solo con localStorage: es el respaldo si falla la red en la demo.
 

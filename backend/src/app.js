@@ -16,6 +16,7 @@ app.use(require('./routes/agenda'));
 app.use(require('./routes/medicamentos'));
 app.use(require('./routes/personas'));
 app.use(require('./routes/vistos'));
+app.use(require('./routes/eleam'));
 
 app.use((req, res) => res.status(404).json({ message: 'Ruta no encontrada' }));
 

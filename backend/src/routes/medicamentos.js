@@ -4,10 +4,11 @@ const express = require('express');
 const { HttpError, asyncHandler } = require('../http');
 const { requireAuth } = require('../auth/token');
 const { exigirPermiso } = require('../auth/permisos');
-const { getItem, putItem, updateFields, isConditionFailed } = require('../db/repo');
-const { keys } = require('../db/keys');
+const { getItem, putItem, updateFields, transact, isConditionFailed, cancellationCodes } = require('../db/repo');
+const { keys, gsiEstablecimiento } = require('../db/keys');
 const { check } = require('../domain/validar');
 const { stockDias, unidadesDesdeDias, UMBRAL_DIAS_DEFECTO } = require('../domain/stock');
+const { movimiento, resumenStock } = require('../services/tomas');
 
 const router = express.Router();
 
@@ -35,12 +36,17 @@ async function cargarMed(grupoId, id) {
 router.post('/medicamentos', requireAuth, exigirPermiso('edita'), asyncHandler(async (req, res) => {
   const { id, elderId, stockDias: dias, ...datos } = validarMed(req.body).id('id').id('elderId').done();
   const g = req.sesion.grupoId;
-  if (!(await getItem(keys.persona(g, elderId)))) throw new HttpError(404, 'Persona no encontrada.');
+  const persona = await getItem(keys.persona(g, elderId));
+  if (!persona) throw new HttpError(404, 'Persona no encontrada.');
   await exigirResponsable(g, datos.responsableId);
 
   const med = { ...datos, id, personaId: elderId, unidadesPorToma: 1, umbralDias: UMBRAL_DIAS_DEFECTO, activo: true };
   try {
-    await putItem({ ...keys.med(g, id), entidad: 'MED', ...med, stockUnidades: unidadesDesdeDias(dias, med) }, { ifNotExists: true });
+    await putItem({
+      ...keys.med(g, id), entidad: 'MED', ...med, stockUnidades: unidadesDesdeDias(dias, med),
+      // Si la persona vive en un ELEAM, el remedio aparece en su ronda.
+      ...gsiEstablecimiento(persona.establecimientoId, g, 'MED', id),
+    }, { ifNotExists: true });
   } catch (err) {
     if (isConditionFailed(err)) throw new HttpError(409, 'Ya existe un remedio con ese id.');
     throw err;
@@ -66,6 +72,32 @@ router.put('/medicamentos/:id', requireAuth, exigirPermiso('edita'), asyncHandle
 
   await updateFields(keys.med(g, id), { ...datos, responsableId: datos.responsableId ?? null, stockUnidades });
   res.json({ ok: true });
+}));
+
+// "Ya compré": suma las unidades compradas y deja un movimiento COMPRA.
+router.post('/medicamentos/:id/compras', requireAuth, exigirPermiso('edita'), asyncHandler(async (req, res) => {
+  const { id } = check(req.params).id('id').done();
+  const { unidades, at } = check(req.body).entero('unidades', { min: 1, max: 1000 }).instante('at', { defecto: new Date().toISOString() }).done();
+  const g = req.sesion.grupoId;
+  const med = await cargarMed(g, id);
+
+  try {
+    await transact([
+      {
+        Update: {
+          Key: keys.med(g, id),
+          UpdateExpression: 'SET stockUnidades = stockUnidades + :u',
+          ConditionExpression: 'attribute_exists(PK)',
+          ExpressionAttributeValues: { ':u': unidades },
+        },
+      },
+      { Put: { Item: movimiento(g, { medId: id, tipo: 'COMPRA', unidades, registradoPor: req.sesion.personaId, at }) } },
+    ]);
+  } catch (err) {
+    if (cancellationCodes(err)?.[0] === 'ConditionalCheckFailed') throw new HttpError(404, 'Remedio no encontrado.');
+    throw err;
+  }
+  res.status(201).json({ ok: true, ...resumenStock(med, med.stockUnidades + unidades) });
 }));
 
 // Se marca como inactivo para conservar su historial de tomas y movimientos.

@@ -23,6 +23,8 @@ const aActivity = ({ personaIds, ...e }) => ({ ...sinClaves(e), elderIds: person
 
 const aNearby = (n) => sinClaves(n);
 
+const MAX_ALERTAS = 50;
+
 const porFechaHora = (a, b) => `${a.fecha} ${a.hora}`.localeCompare(`${b.fecha} ${b.hora}`);
 
 /**
@@ -43,7 +45,7 @@ function construirEstado(items, cercaItems, sesion) {
   const members = de('MIEMBRO').map((m) =>
     esAdulto
       ? { id: m.id, nombre: m.nombre, apellido: m.apellido }
-      : { id: m.id, nombre: m.nombre, apellido: m.apellido, email: m.email, permiso: m.permiso, estado: m.estado },
+      : { id: m.id, nombre: m.nombre, apellido: m.apellido, email: m.email, telefono: m.telefono ?? '', permiso: m.permiso, estado: m.estado },
   );
 
   const activities = de('EVENTO')
@@ -60,6 +62,21 @@ function construirEstado(items, cercaItems, sesion) {
   for (const a of de('ASIST')) {
     if (visible(a.personaId)) attendance[`${a.eventoId}|${a.personaId}`] = { value: a.value, at: a.at };
   }
+
+  // Dosis que el personal de un ELEAM registró como no dadas, con su motivo.
+  const omissions = {};
+  for (const o of de('OMISION')) {
+    if (medIds.has(o.medId)) omissions[`${o.medId}|${o.fecha}|${o.hora}`] = { motivo: o.motivo, at: o.at };
+  }
+
+  // Alertas que envió el servidor (stock bajo, dosis no dadas). Solo para la familia.
+  const alertas = esAdulto
+    ? []
+    : de('ALERTA')
+      .sort((a, b) => b.at.localeCompare(a.at))
+      .slice(0, MAX_ALERTAS)
+      .map(({ id, tipo, nivel, titulo, mensaje, personaId, medId, at, canal, estado, destinatarios }) =>
+        ({ id, tipo, nivel, titulo, mensaje, personaId, medId, at, canal, estado, destinatarios: (destinatarios ?? []).map((d) => d.nombre) }));
 
   // Cada quien recibe solo sus propios avisos vistos.
   const seen = {};
@@ -80,6 +97,8 @@ function construirEstado(items, cercaItems, sesion) {
     nearby: cercaItems.filter((n) => n.entidad === 'CERCA').map(aNearby).sort(porFechaHora),
     intakes,
     attendance,
+    omissions,
+    alertas,
     seen,
   };
 }

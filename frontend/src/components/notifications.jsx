@@ -5,6 +5,7 @@ import { buildNotifications, dueNotifications, scheduledNotifications } from '..
 import { haceCuanto, toHHMM, HOUR, MINUTE } from '../lib/dates'
 import { elderById } from '../lib/selectors'
 import { Icon } from './Icon'
+import logo from '../assets/autia-logo.png'
 
 /** Avisos de quien tiene la sesión abierta, más las acciones para responderlos. */
 export function useNotifications() {
@@ -65,8 +66,8 @@ export function NotificationCard({ n, big = false, unread = false, onAction, now
         </span>
       )}
       <div className="notice__head">
-        <span className="app-glyph"><Icon name="heart" size={big ? 16 : 12} stroke={2.5} /></span>
-        <strong>Cerca</strong>
+        <img className="app-glyph" src={logo} alt="" />
+        <strong className="wordmark notice__app">Autia</strong>
         {elder && <span>· {n.audience === 'adulto' ? `para ${elder.nombre}` : elder.nombre}</span>}
         <span className="grow" />
         <span>{when}</span>

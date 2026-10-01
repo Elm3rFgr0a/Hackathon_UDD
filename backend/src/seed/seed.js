@@ -2,12 +2,14 @@
 // contenidos). Las fechas son relativas a `now`, en hora de Chile, para que la
 // demo siempre tenga "hoy", "mañana" y "próximos días". Todo es ficticio.
 
-const { keys } = require('../db/keys');
+const { keys, grupoPK, estabPK, gsiEstablecimiento } = require('../db/keys');
+const { ESTABLECIMIENTOS } = require('../domain/establecimientos');
 const { hashPassword } = require('../auth/password');
 const { unidadesDesdeDias, UMBRAL_DIAS_DEFECTO } = require('../domain/stock');
 const { HOUR, MINUTE, localParts, tzOffsetMs, addDaysISO, localToInstant } = require('../domain/time');
 
 const SEED_GRUPO_ID = 'g-munoz';
+const ESTAB_ID = 'est-los-aromos';
 const SEED_PASSWORD = '1234';
 
 const elders = [
@@ -16,9 +18,10 @@ const elders = [
 ];
 
 const members = [
-  { id: 'u-camila', nombre: 'Camila', apellido: 'Pérez', email: 'camila@cerca.cl', permiso: 'admin', estado: 'activo' },
-  { id: 'u-jorge', nombre: 'Jorge', apellido: 'Muñoz', email: 'jorge@cerca.cl', permiso: 'edita', estado: 'activo' },
-  { id: 'u-marta', nombre: 'Marta', apellido: 'Muñoz', email: 'marta@cerca.cl', permiso: 've', estado: 'activo' },
+  // Teléfonos ficticios: con WHATSAPP_DEMO_TO las alertas van al teléfono de la demo.
+  { id: 'u-camila', nombre: 'Camila', apellido: 'Pérez', email: 'camila@cerca.cl', telefono: '+56900000001', permiso: 'admin', estado: 'activo' },
+  { id: 'u-jorge', nombre: 'Jorge', apellido: 'Muñoz', email: 'jorge@cerca.cl', telefono: '+56900000002', permiso: 'edita', estado: 'activo' },
+  { id: 'u-marta', nombre: 'Marta', apellido: 'Muñoz', email: 'marta@cerca.cl', telefono: '+56900000003', permiso: 've', estado: 'activo' },
 ];
 
 // Jorge y Marta no están en el front; sirven para probar los permisos `edita` y `ve`.
@@ -28,6 +31,40 @@ const accounts = [
   { email: 'camila@cerca.cl', rol: 'familiar', personaId: 'u-camila' },
   { email: 'jorge@cerca.cl', rol: 'familiar', personaId: 'u-jorge' },
   { email: 'marta@cerca.cl', rol: 'familiar', personaId: 'u-marta' },
+  // Personal del ELEAM (fase D): no pertenece a un grupo, sino a su establecimiento.
+  { email: 'cuidadora@losaromos.cl', rol: 'eleam', personaId: 's-paula', establecimientoId: ESTAB_ID, grupoId: null },
+];
+
+const personal = [
+  { id: 's-paula', nombre: 'Paula', apellido: 'Contreras', cargo: 'Técnica en enfermería', estado: 'activo' },
+];
+
+/**
+ * Otros residentes del ELEAM Los Aromos, cada uno con su propia familia (otro
+ * grupo). Muestran que la ronda reúne a residentes de grupos distintos.
+ * Los stocks están pensados para la ronda de las 12:30: el paracetamol de Elena
+ * cruza a amarillo y el calcio de Luis ya está en rojo.
+ */
+const otrosGrupos = [
+  {
+    id: 'g-soto', nombre: 'Familia Soto',
+    elder: { id: 'e-elena', nombre: 'Elena', apellido: 'Soto', fechaNacimiento: '1940-05-21', residencia: 'ELEAM Los Aromos', establecimientoId: ESTAB_ID, telefono: '', color: 'blue' },
+    member: { id: 'u-andrea', nombre: 'Andrea', apellido: 'Soto', email: 'andrea@ejemplo.cl', telefono: '+56900000004', permiso: 'admin', estado: 'activo' },
+    meds: [
+      { id: 'm-enalapril-elena', nombre: 'Enalapril', dosis: '10 mg', cantidad: '1 pastilla', indicacion: 'Con agua', horarios: ['08:00', '20:00'], stockDias: 20 },
+      { id: 'm-paracetamol-elena', nombre: 'Paracetamol', dosis: '500 mg', cantidad: '1 pastilla', indicacion: 'Después de almorzar', horarios: ['12:30'], stockDias: 8 },
+    ],
+  },
+  {
+    id: 'g-rojas', nombre: 'Familia Rojas',
+    elder: { id: 'e-luis', nombre: 'Luis', apellido: 'Rojas', fechaNacimiento: '1938-11-09', residencia: 'ELEAM Los Aromos', establecimientoId: ESTAB_ID, telefono: '', color: 'orange' },
+    member: { id: 'u-pedro', nombre: 'Pedro', apellido: 'Rojas', email: 'pedro@ejemplo.cl', telefono: '+56900000005', permiso: 'admin', estado: 'activo' },
+    meds: [
+      { id: 'm-omeprazol-luis', nombre: 'Omeprazol', dosis: '20 mg', cantidad: '1 cápsula', indicacion: 'En ayunas', horarios: ['07:00'], stockDias: 12 },
+      { id: 'm-calcio-luis', nombre: 'Carbonato de calcio', dosis: '500 mg', cantidad: '1 comprimido', indicacion: 'Con el almuerzo', horarios: ['12:30'], stockDias: 3 },
+      { id: 'm-donepecilo-luis', nombre: 'Donepecilo', dosis: '5 mg', cantidad: '1 pastilla', indicacion: 'Antes de dormir', horarios: ['20:00'], stockDias: 25 },
+    ],
+  },
 ];
 
 // stockDias como en el front; se guarda en unidades.
@@ -81,7 +118,7 @@ async function buildSeedItems(now = new Date(), { relojOffsetMs = 0, reseteadoEn
   });
 
   for (const e of elders) {
-    items.push({ ...keys.persona(g, e.id), entidad: 'PERSONA', ...e });
+    items.push({ ...keys.persona(g, e.id), entidad: 'PERSONA', ...e, ...gsiEstablecimiento(e.establecimientoId, g, 'PERSONA', e.id) });
   }
 
   for (const m of members) {
@@ -89,12 +126,17 @@ async function buildSeedItems(now = new Date(), { relojOffsetMs = 0, reseteadoEn
   }
 
   for (const a of accounts) {
-    items.push({ ...keys.cuenta(a.email), entidad: 'CUENTA', ...a, grupoId: g, passwordHash: await hashPassword(SEED_PASSWORD) });
+    const cuenta = { ...keys.cuenta(a.email), entidad: 'CUENTA', ...a, grupoId: a.grupoId === null ? undefined : g, passwordHash: await hashPassword(SEED_PASSWORD) };
+    items.push(cuenta);
   }
 
+  const estDe = (elderId) => elders.find((e) => e.id === elderId)?.establecimientoId;
   for (const { elderId, stockDias, ...m } of medications) {
     const med = { ...m, personaId: elderId, unidadesPorToma: 1, umbralDias: UMBRAL_DIAS_DEFECTO, activo: true };
-    items.push({ ...keys.med(g, m.id), entidad: 'MED', ...med, stockUnidades: unidadesDesdeDias(stockDias, med) });
+    items.push({
+      ...keys.med(g, m.id), entidad: 'MED', ...med, stockUnidades: unidadesDesdeDias(stockDias, med),
+      ...gsiEstablecimiento(estDe(elderId), g, 'MED', m.id),
+    });
   }
 
   for (const { elderIds, ...a } of activities) {
@@ -133,10 +175,56 @@ async function buildSeedItems(now = new Date(), { relojOffsetMs = 0, reseteadoEn
     }
   }
 
+  // Alertas que el servidor ya había enviado: los dos remedios que están bajo el umbral.
+  const alertaInicial = (id, medId, personaId, titulo, mensaje, horas, destinatarios) => ({
+    ...keys.alerta(g, ago(horas), id), entidad: 'ALERTA',
+    id, tipo: 'stock', nivel: 'amarillo', titulo, mensaje, personaId, medId, at: ago(horas),
+    canal: 'simulado', estado: 'simulada', destinatarios: destinatarios.map((nombre) => ({ nombre, ok: true })),
+  });
+  items.push(alertaInicial('al-metformina', 'm-metformina', 'e-rosa', 'A Metformina de Rosa le quedan 6 días',
+    'Autia: a Metformina 850 mg de Rosa le quedan 6 días. Compra a cargo de Jorge.', 4, ['Camila', 'Jorge']));
+  items.push(alertaInicial('al-omeprazol', 'm-omeprazol', 'e-hector', 'A Omeprazol de Héctor le quedan 4 días',
+    'Autia: a Omeprazol 20 mg de Héctor le quedan 4 días. Compra a cargo de Marta.', 3, ['Camila', 'Marta']));
+
+  // ELEAM Los Aromos: datos del establecimiento y su personal.
+  const est = ESTABLECIMIENTOS.find((e) => e.id === ESTAB_ID);
+  items.push({ ...keys.establecimiento(ESTAB_ID), entidad: 'ESTAB', ...est, relojOffsetMs, reseteadoEn });
+  for (const p of personal) items.push({ ...keys.personal(ESTAB_ID, p.id), entidad: 'STAFF', ...p, establecimientoId: ESTAB_ID });
+
+  // Otras familias con residentes en el mismo ELEAM.
+  for (const og of otrosGrupos) {
+    items.push({ ...keys.grupo(og.id), entidad: 'GRUPO', id: og.id, nombre: og.nombre, seededAt: now.toISOString(), relojOffsetMs, reseteadoEn });
+    items.push({ ...keys.persona(og.id, og.elder.id), entidad: 'PERSONA', ...og.elder, ...gsiEstablecimiento(ESTAB_ID, og.id, 'PERSONA', og.elder.id) });
+    items.push({ ...keys.miembro(og.id, og.member.id), entidad: 'MIEMBRO', ...og.member });
+    for (const { stockDias, ...m } of og.meds) {
+      const med = { ...m, personaId: og.elder.id, unidadesPorToma: 1, umbralDias: UMBRAL_DIAS_DEFECTO, activo: true, responsableId: og.member.id };
+      items.push({
+        ...keys.med(og.id, m.id), entidad: 'MED', ...med, stockUnidades: unidadesDesdeDias(stockDias, med),
+        ...gsiEstablecimiento(ESTAB_ID, og.id, 'MED', m.id),
+      });
+      for (const h of m.horarios) {
+        const dosis = (fecha, minutos) => ({
+          ...keys.toma(og.id, fecha, h, m.id), entidad: 'TOMA',
+          medId: m.id, personaId: og.elder.id, fecha, hora: h,
+          at: new Date(at(fecha, h).getTime() + minutos * MINUTE).toISOString(), registradaPor: 's-paula',
+        });
+        items.push(dosis(day(-1), 10));
+        if (now - at(today, h) > 90 * MINUTE) items.push(dosis(today, 12));
+      }
+    }
+  }
+
   return items;
 }
 
 /** Claves de cuenta del seed (para borrarlas en el reset). */
 const seedAccountKeys = () => accounts.map((a) => keys.cuenta(a.email));
 
-module.exports = { SEED_GRUPO_ID, buildSeedItems, seedAccountKeys };
+/** Particiones que el reset borra y vuelve a cargar. */
+const seedPartitions = () => [
+  grupoPK(SEED_GRUPO_ID),
+  ...otrosGrupos.map((og) => grupoPK(og.id)),
+  estabPK(ESTAB_ID),
+];
+
+module.exports = { SEED_GRUPO_ID, ESTAB_ID, buildSeedItems, seedAccountKeys, seedPartitions };

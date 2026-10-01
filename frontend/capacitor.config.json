@@ -1,6 +1,6 @@
 {
   "appId": "cl.udd.cerca",
-  "appName": "Cerca",
+  "appName": "Autia",
   "webDir": "dist",
   "android": { "backgroundColor": "#FBF8F2" },
   "plugins": { "SystemBars": { "insetsHandling": "disable", "style": "LIGHT" } }

@@ -4,9 +4,10 @@ const express = require('express');
 const { HttpError, asyncHandler } = require('../http');
 const { requireAuth } = require('../auth/token');
 const { exigirPermiso } = require('../auth/permisos');
-const { getItem, putItem, updateFields, isConditionFailed } = require('../db/repo');
-const { keys } = require('../db/keys');
+const { getItem, putItem, updateFields, queryPrefix, isConditionFailed } = require('../db/repo');
+const { keys, grupoPK, gsiEstablecimiento } = require('../db/keys');
 const { check } = require('../domain/validar');
+const { establecimientoDeResidencia } = require('../domain/establecimientos');
 
 const router = express.Router();
 
@@ -19,10 +20,17 @@ const validarPersona = (body) => check(body)
   .texto('telefono', { max: 20, defecto: '' })
   .texto('color', { max: 20, defecto: 'blue' });
 
+/** El establecimiento sale de la residencia elegida en el formulario, nunca del cliente. */
+const conEstablecimiento = (persona) => ({ ...persona, establecimientoId: establecimientoDeResidencia(persona.residencia) ?? undefined });
+
 router.post('/personas', requireAuth, exigirPermiso('admin'), asyncHandler(async (req, res) => {
-  const persona = validarPersona(req.body).id('id').done();
+  const persona = conEstablecimiento(validarPersona(req.body).id('id').done());
+  const g = req.sesion.grupoId;
   try {
-    await putItem({ ...keys.persona(req.sesion.grupoId, persona.id), entidad: 'PERSONA', ...persona }, { ifNotExists: true });
+    await putItem({
+      ...keys.persona(g, persona.id), entidad: 'PERSONA', ...persona,
+      ...gsiEstablecimiento(persona.establecimientoId, g, 'PERSONA', persona.id),
+    }, { ifNotExists: true });
   } catch (err) {
     if (isConditionFailed(err)) throw new HttpError(409, 'Ya existe una persona con ese id.');
     throw err;
@@ -32,10 +40,21 @@ router.post('/personas', requireAuth, exigirPermiso('admin'), asyncHandler(async
 
 router.put('/personas/:id', requireAuth, exigirPermiso('admin'), asyncHandler(async (req, res) => {
   const { id } = check(req.params).id('id').done();
-  const datos = validarPersona(req.body).done();
-  const key = keys.persona(req.sesion.grupoId, id);
-  if (!(await getItem(key))) throw new HttpError(404, 'Persona no encontrada.');
-  await updateFields(key, datos);
+  const datos = conEstablecimiento(validarPersona(req.body).done());
+  const g = req.sesion.grupoId;
+  const key = keys.persona(g, id);
+  const actual = await getItem(key);
+  if (!actual) throw new HttpError(404, 'Persona no encontrada.');
+
+  // Sin establecimiento, los atributos del índice se quitan (undefined → REMOVE).
+  const gsi = (tipo, itemId) => ({ GSI1PK: undefined, GSI1SK: undefined, ...gsiEstablecimiento(datos.establecimientoId, g, tipo, itemId) });
+  await updateFields(key, { ...datos, ...gsi('PERSONA', id) });
+
+  // Si cambió de establecimiento, sus remedios se mueven con ella a la ronda correspondiente.
+  if ((actual.establecimientoId ?? null) !== (datos.establecimientoId ?? null)) {
+    const meds = (await queryPrefix(grupoPK(g), 'MED#')).filter((m) => m.personaId === id);
+    await Promise.all(meds.map((m) => updateFields(keys.med(g, m.id), gsi('MED', m.id))));
+  }
   res.json({ ok: true });
 }));
 
@@ -46,6 +65,7 @@ router.post('/miembros', requireAuth, exigirPermiso('admin'), asyncHandler(async
     .texto('nombre', { req: true, max: 60 })
     .texto('apellido', { max: 60, defecto: '·' })
     .email('email')
+    .telefono('telefono')
     .opcion('permiso', ['admin', 'edita', 've'])
     .done();
   try {

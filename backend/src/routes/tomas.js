@@ -1,7 +1,6 @@
 // Tomas de medicamentos. Registrar una toma descuenta stock en la misma
 // transacción; repetirla no descuenta dos veces.
 
-const crypto = require('crypto');
 const express = require('express');
 const { HttpError, asyncHandler } = require('../http');
 const { requireAuth } = require('../auth/token');
@@ -9,19 +8,9 @@ const { exigirSobrePersona } = require('../auth/permisos');
 const { getItem, transact, cancellationCodes } = require('../db/repo');
 const { keys } = require('../db/keys');
 const { check } = require('../domain/validar');
-const { stockDias, semaforo } = require('../domain/stock');
+const { registrarToma, movimiento, resumenStock } = require('../services/tomas');
 
 const router = express.Router();
-
-const movimiento = (grupoId, { medId, tipo, unidades, registradoPor, at }) => ({
-  ...keys.movimiento(grupoId, at, crypto.randomUUID()),
-  entidad: 'MOV', medId, tipo, unidades, registradoPor, fecha: at,
-});
-
-const resumenStock = (med, stockUnidades) => {
-  const dias = stockDias({ ...med, stockUnidades });
-  return { stockUnidades, stockDias: dias, semaforo: semaforo(dias, med.umbralDias) };
-};
 
 router.put('/tomas', requireAuth, asyncHandler(async (req, res) => {
   const { medId, fecha, hora, at } = check(req.body)
@@ -33,41 +22,9 @@ router.put('/tomas', requireAuth, asyncHandler(async (req, res) => {
   exigirSobrePersona(req.sesion, med.personaId);
   if (!med.horarios.includes(hora)) throw new HttpError(400, 'Ese horario no corresponde a este remedio.');
 
-  // Si no queda stock, la toma se registra igual (la persona sí la tomó), sin descontar.
-  const porToma = med.unidadesPorToma ?? 1;
-  const unidades = med.stockUnidades >= porToma ? porToma : 0;
-
-  const ops = [{
-    Put: {
-      Item: {
-        ...keys.toma(g, fecha, hora, medId), entidad: 'TOMA',
-        medId, personaId: med.personaId, fecha, hora, at, registradaPor: quien, unidades,
-      },
-      ConditionExpression: 'attribute_not_exists(PK)',
-    },
-  }];
-  if (unidades > 0) {
-    ops.push({
-      Update: {
-        Key: keys.med(g, medId),
-        UpdateExpression: 'SET stockUnidades = stockUnidades - :u',
-        ConditionExpression: 'stockUnidades >= :u',
-        ExpressionAttributeValues: { ':u': unidades },
-      },
-    });
-    ops.push({ Put: { Item: movimiento(g, { medId, tipo: 'CONSUMO', unidades: -unidades, registradoPor: quien, at }) } });
-  }
-
-  try {
-    await transact(ops);
-  } catch (err) {
-    const codes = cancellationCodes(err);
-    if (codes?.[0] === 'ConditionalCheckFailed') return res.json({ ok: true, yaRegistrada: true });
-    if (codes?.[1] === 'ConditionalCheckFailed') throw new HttpError(409, 'El stock cambió mientras registrábamos la toma. Intenta de nuevo.');
-    throw err;
-  }
-
-  return res.status(201).json({ ok: true, ...resumenStock(med, med.stockUnidades - unidades) });
+  const { yaRegistrada, alerta, ...stock } = await registrarToma(g, med, { fecha, hora, at, quien });
+  if (yaRegistrada) return res.json({ ok: true, yaRegistrada: true });
+  return res.status(201).json({ ok: true, ...stock, ...(alerta && { alerta: { id: alerta.id, estado: alerta.estado } }) });
 }));
 
 // Acepta los datos en el body o en la query (algunos clientes no envían body en DELETE).

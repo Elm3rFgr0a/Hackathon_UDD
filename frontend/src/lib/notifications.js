@@ -20,6 +20,25 @@ import {
  *               actions, resolved, link }
  */
 
+const nombres = (lista) =>
+  lista.length <= 1 ? lista.join('') : `${lista.slice(0, -1).join(', ')} y ${lista[lista.length - 1]}`
+
+/** El WhatsApp empieza con el nombre de la app ("Autia: "); en la app se quita y se pone mayúscula. */
+const sinPrefijo = (texto) => {
+  const t = texto.replace(/^(Autia|Cerca): /, '')
+  return t.charAt(0).toUpperCase() + t.slice(1)
+}
+
+/** Cómo salió el envío por WhatsApp de una alerta del servidor. */
+function envioTexto(a) {
+  const para = nombres(a.destinatarios ?? [])
+  if (a.estado === 'enviada') return `Enviado por WhatsApp a ${para}.`
+  if (a.estado === 'simulada') return `WhatsApp simulado para ${para}.`
+  if (a.estado === 'parcial') return `Enviado por WhatsApp solo a algunos de: ${para}.`
+  if (a.estado === 'fallida') return 'No se pudo enviar por WhatsApp.'
+  return 'Nadie del núcleo tiene teléfono para WhatsApp.'
+}
+
 const plusMin = (d, m) => new Date(d.getTime() + m * MINUTE)
 
 function forElder(s, elderId, now) {
@@ -33,6 +52,10 @@ function forElder(s, elderId, now) {
     for (const d of dosesForDay(s, elderId, iso, now)) {
       const m = d.med
       const taken = d.status === 'taken'
+      // Una dosis que el ELEAM registró como no dada ya está resuelta: el servidor avisó a la familia.
+      const omitted = d.status === 'omitted'
+      const closed = taken || omitted
+      const closedLabel = omitted ? 'No se dio' : 'Tomado'
       const takePayload = { medId: m.id, iso, time: d.time }
       out.push({
         id: `med-time|${d.key}`, at: d.when, audience: 'adulto', elderId, section: 'rem',
@@ -40,10 +63,10 @@ function forElder(s, elderId, now) {
         title: 'Es hora de tu remedio',
         body: `${m.nombre} ${m.dosis} · ${m.cantidad}${m.indicacion ? `, ${m.indicacion.toLowerCase()}` : ''}.`,
         actions: [{ label: 'Ya lo tomé', type: 'take', payload: takePayload, primary: true }],
-        resolved: taken, resolvedLabel: 'Tomado', link: '/adulto/remedios',
+        resolved: closed, resolvedLabel: closedLabel, link: '/adulto/remedios',
       })
       const remindAt = plusMin(d.when, 15)
-      if (!taken || d.takenAt > remindAt) {
+      if (!closed || (taken && d.takenAt > remindAt)) {
         out.push({
           id: `med-remind|${d.key}`, at: remindAt, audience: 'adulto', elderId, section: 'rem',
           timing: '15 min después, si no lo confirmó',
@@ -53,11 +76,11 @@ function forElder(s, elderId, now) {
             { label: 'Sí, lo tomé', type: 'take', payload: takePayload, primary: true },
             { label: 'Aún no', type: 'dismiss' },
           ],
-          resolved: taken, resolvedLabel: 'Tomado', link: '/adulto/remedios',
+          resolved: closed, resolvedLabel: closedLabel, link: '/adulto/remedios',
         })
       }
       const warnAt = plusMin(d.when, 30)
-      if (!taken || d.takenAt > warnAt) {
+      if (!closed || (taken && d.takenAt > warnAt)) {
         out.push({
           id: `med-missed|${d.key}`, at: warnAt, audience: 'familiar', elderId, section: 'rem',
           timing: '30 min después, si no lo confirmó',
@@ -191,9 +214,24 @@ function forElder(s, elderId, now) {
     })
   }
 
-  // Stock bajo y resumen diario (familia)
+  // Alertas que envió el servidor (stock que cruza el umbral, dosis no dadas en el ELEAM),
+  // con el resultado del envío por WhatsApp. Reemplazan al aviso de stock calculado aquí.
   const today = toISODate(now)
-  for (const m of medsOf(s, elderId)) {
+  const serverAlerts = Array.isArray(s.alertas)
+  for (const a of serverAlerts ? s.alertas : []) {
+    if (a.personaId !== elderId) continue
+    out.push({
+      id: `alerta|${a.id}`, at: new Date(a.at), audience: 'familiar', elderId, section: 'acc',
+      timing: a.tipo === 'omision' ? 'Cuando el ELEAM registra una dosis no dada' : 'Cuando el stock cruza un umbral',
+      title: a.titulo,
+      body: `${sinPrefijo(a.mensaje)} ${envioTexto(a)}`,
+      actions: [{ label: 'Ver remedios', type: 'link', payload: '/familiar/remedios', primary: true }],
+      link: '/familiar/remedios',
+    })
+  }
+
+  // Stock bajo y resumen diario (familia). En modo local, sin alertas del servidor.
+  for (const m of serverAlerts ? [] : medsOf(s, elderId)) {
     if (m.stockDias > 7) continue
     out.push({
       id: `stock|${m.id}|${today}|${m.stockDias}`, at: at(today, '09:00'), audience: 'familiar', elderId, section: 'acc',

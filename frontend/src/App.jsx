@@ -23,8 +23,10 @@ import NewActivity from './pages/family/NewActivity'
 import People from './pages/family/People'
 import ElderForm from './pages/family/ElderForm'
 import FamilyNotifications from './pages/family/FamilyNotifications'
+import EleamRonda from './pages/eleam/EleamRonda'
 
-const homeFor = (session) => (!session ? '/login' : session.rol === 'adulto' ? '/adulto' : '/familiar')
+const HOME = { adulto: '/adulto', familiar: '/familiar', eleam: '/eleam' }
+const homeFor = (session) => (session && HOME[session.rol]) || '/login'
 
 function ScrollToTop() {
   const { pathname } = useLocation()
@@ -62,7 +64,7 @@ function RequireRole({ rol }) {
   return (
     <>
       <Outlet />
-      <NotificationHost big={rol === 'adulto'} />
+      {rol !== 'eleam' && <NotificationHost big={rol === 'adulto'} />}
     </>
   )
 }
@@ -118,6 +120,10 @@ export default function App() {
             <Route path="personas" element={<People />} />
             <Route path="personas/:elderId" element={<ElderForm />} />
           </Route>
+        </Route>
+
+        <Route path="/eleam" element={<RequireRole rol="eleam" />}>
+          <Route index element={<EleamRonda />} />
         </Route>
 
         <Route path="*" element={<Navigate to={homeFor(session)} replace />} />

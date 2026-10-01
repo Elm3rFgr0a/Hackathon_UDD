@@ -9,13 +9,17 @@ import FamilyShell, { useFamily } from './FamilyShell'
 const PERMISOS = { admin: 'Administra', edita: 'Edita', ve: 'Solo ve' }
 
 function InviteSheet({ onClose, onInvite }) {
-  const [form, setForm] = useState({ nombre: '', apellido: '', email: '', permiso: 'edita' })
+  const [form, setForm] = useState({ nombre: '', apellido: '', email: '', telefono: '', permiso: 'edita' })
   const [error, setError] = useState('')
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }))
   const submit = (e) => {
     e.preventDefault()
     if (!form.nombre.trim() || !/^\S+@\S+\.\S+$/.test(form.email)) return setError('Escribe un nombre y un correo válido.')
-    onInvite({ ...form, nombre: form.nombre.trim(), apellido: form.apellido.trim() || '·' })
+    // Mismo formato que valida el servidor: +569… (un celular de 9 dígitos recibe +56).
+    const limpio = form.telefono.replace(/[\s()-]/g, '')
+    const telefono = /^9\d{8}$/.test(limpio) ? `+56${limpio}` : limpio
+    if (telefono && !/^\+\d{8,15}$/.test(telefono)) return setError('El teléfono debe ser como +56 9 1234 5678.')
+    onInvite({ ...form, nombre: form.nombre.trim(), apellido: form.apellido.trim() || '·', telefono: telefono || undefined })
     onClose()
   }
   return (
@@ -26,6 +30,10 @@ function InviteSheet({ onClose, onInvite }) {
           <div className="field"><label htmlFor="i-a">Apellido</label><input id="i-a" className="input" value={form.apellido} onChange={set('apellido')} /></div>
         </div>
         <div className="field"><label htmlFor="i-e">Correo</label><input id="i-e" type="email" className="input" value={form.email} onChange={set('email')} /></div>
+        <div className="field">
+          <label htmlFor="i-t">Teléfono para WhatsApp (opcional)</label>
+          <input id="i-t" type="tel" inputMode="tel" autoComplete="tel" className="input" placeholder="+56 9 1234 5678" value={form.telefono} onChange={set('telefono')} />
+        </div>
         <div className="field">
           <span className="field__label">Permiso</span>
           <div className="segmented" role="group" aria-label="Permiso">

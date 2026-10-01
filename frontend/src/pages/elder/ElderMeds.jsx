@@ -31,12 +31,14 @@ function DoseCard({ dose, now, onTake }) {
 
   const taken = status === 'taken'
   return (
-    <li className={`e-card${taken ? ' e-card--quiet' : ''}`}>
+    <li className={`e-card${taken || status === 'omitted' ? ' e-card--quiet' : ''}`}>
       <div className="e-row">
         <span className="e-time">{time}</span>
         <span className="e-spacer" />
         {taken ? (
           <span className="e-status e-status--ok"><Icon name="check" size={30} stroke={3.5} />Tomado</span>
+        ) : status === 'omitted' ? (
+          <span className="e-status e-status--no"><Icon name="x" size={28} stroke={3.5} />No se dio</span>
         ) : (
           <span className="e-status e-status--no"><Icon name="clock" size={28} stroke={2.5} />Más tarde</span>
         )}

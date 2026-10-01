@@ -1,4 +1,6 @@
-# Plan del backend — Cerca
+# Plan del backend — Autia
+
+El proyecto se llamaba Cerca: los recursos de AWS (`hackathonUDD`, tabla `Cerca-dev`) y el `appId` de Android (`cl.udd.cerca`) conservan ese nombre para no recrear la tabla ni cambiar la identidad de la app instalada.
 
 Plan de base de datos, login y APIs para que el frontend (`frontend/`) deje de depender de `localStorage` y funcione contra AWS. Contexto general en [CONTEXTO.md](../CONTEXTO.md).
 
@@ -11,7 +13,7 @@ Plan de base de datos, login y APIs para que el frontend (`frontend/`) deje de d
 
 ## 1. Reconciliación de las fuentes
 
-Fuentes: `contexto.md` (base del equipo), `BDD.md` (diseño inicial de Lucas), `CONTEXTO.md` y el código del frontend (`frontend/src/data/seed.js`, `context/AppContext.jsx`, `lib/selectors.js`, `lib/notifications.js`).
+Fuentes: la base original del equipo (hoy anexo de `CONTEXTO.md`), `BDD.md` (diseño inicial de Lucas), `CONTEXTO.md` y el código del frontend (`frontend/src/data/seed.js`, `context/AppContext.jsx`, `lib/selectors.js`, `lib/notifications.js`).
 
 | Tema | Qué decía cada fuente | Decisión |
 |---|---|---|
@@ -20,8 +22,8 @@ Fuentes: `contexto.md` (base del equipo), `BDD.md` (diseño inicial de Lucas), `
 | Receta | `BDD.md`: JSON anidado en `Usuario` | **Un registro por medicamento**, para descontar stock de forma atómica |
 | Visitas médicas | `BDD.md`: JSON anidado | **Evento de tipo `consulta`**, como en el front |
 | Toma | `BDD.md`: `idToma`, `idUsuario`, `medicamento`, `horaFecha` | Se mantiene, con la fecha en la clave para consultar por día |
-| Autenticación | `contexto.md`: Cognito | **Login simple.** El token lleva los mismos datos que daría Cognito |
-| Framework de front | `contexto.md`: Next.js | **Vite + React Router**, que es lo construido |
+| Autenticación | Base del equipo: Cognito | **Login simple.** El token lleva los mismos datos que daría Cognito |
+| Framework de front | Base del equipo: Next.js | **Vite + React Router**, que es lo construido |
 | Stock | Front: `stockDias` fijo. `CONTEXTO.md`: unidades que se descuentan | **Se guardan unidades; la API devuelve `stockDias` calculado** |
 | RUT | Front, `usersHandler` y `BDD.md`: obligatorio | **No se guarda** (ver sección 8). Eliminado del front, del seed y de la API |
 | Fechas | Front: `fecha: 'YYYY-MM-DD'`, `hora: 'HH:mm'` locales | Se mantiene. **El servidor no calcula "hoy" con su reloj** (Lambda corre en UTC): usa la fecha que manda el cliente o `America/Santiago` |
@@ -48,8 +50,14 @@ Fuentes: `contexto.md` (base del equipo), `BDD.md` (diseño inicial de Lucas), `
 | Asistencia | `GRUPO#<g>` | `ASIST#<eventoId>#<personaId>` | `value` (`asistio` / `no`), `at` |
 | Aviso visto | `GRUPO#<g>` | `VISTO#<viewerId>#<avisoId>` | — |
 | Movimiento de stock | `GRUPO#<g>` | `MOV#<timestamp>#<id>` | `medId`, `tipo` (`CONSUMO` / `COMPRA` / `AJUSTE`), `unidades`, `registradoPor` |
-| Cuenta | `CUENTA#<email>` | `CUENTA` | `passwordHash`, `rol` (`adulto` / `familiar`), `personaId`, `grupoId` |
+| Cuenta | `CUENTA#<email>` | `CUENTA` | `passwordHash`, `rol` (`adulto` / `familiar` / `eleam`), `personaId`, `grupoId` (o `establecimientoId` si es `eleam`) |
 | Actividad cercana | `CERCA` | `EVT#<fecha>#<id>` | `titulo`, `fecha`, `hora`, `lugar`, `organizador`, `minutosCaminando`, `distanciaKm`, `publishedAt` |
+| Dosis no dada (fase D) | `GRUPO#<g>` | `OMISION#<fecha>#<hora>#<medId>` | `medId`, `personaId`, `motivo`, `at`, `registradaPor`, `establecimientoId` |
+| Alerta enviada (fase D) | `GRUPO#<g>` | `ALERTA#<timestamp>#<id>` | `tipo` (`stock` / `omision`), `nivel`, `titulo`, `mensaje`, `personaId`, `medId`, `canal` (`whatsapp` / `simulado`), `estado`, `destinatarios[]` |
+| Establecimiento (fase D) | `ESTAB#<e>` | `META` | `nombre`, `relojOffsetMs`, `reseteadoEn` |
+| Personal del ELEAM (fase D) | `ESTAB#<e>` | `STAFF#<id>` | `nombre`, `apellido`, `cargo`, `estado` |
+
+Las personas que viven en un ELEAM y sus remedios llevan además `GSI1PK = ESTAB#<e>` y `GSI1SK = PERSONA#<g>#<id>` o `MED#<g>#<id>`. El establecimiento se deduce de la residencia elegida en el formulario (`domain/establecimientos.js`); el cliente no lo envía. Los miembros tienen además `telefono` (formato `+569…`), opcional, para WhatsApp.
 
 Los ids del seed se mantienen legibles e iguales a los del front (`e-rosa`, `m-losartan`, `u-camila`). Los registros nuevos usan `crypto.randomUUID()`.
 
@@ -100,8 +108,11 @@ El formulario del front envía `stockDias`; al crear o editar, el backend guarda
 | Miembro `edita` | Leer, más medicamentos y eventos |
 | Miembro `admin` | Todo lo anterior, más personas e invitaciones |
 | `adulto` | Leer lo suyo; registrar sus tomas y asistencias; sumar actividades cercanas a su agenda; marcar avisos vistos. Siempre solo sobre su propia persona |
+| `eleam` | Solo la ronda de su establecimiento (`/eleam/*`): ver y registrar las dosis de sus residentes, de cualquier grupo. No entra a `/estado` ni a las rutas de grupo |
 
-Cuentas del seed (contraseña `1234`): `rosa@cerca.cl`, `hector@cerca.cl` (adulto mayor) y `camila@cerca.cl` (familiar, `admin`). Un miembro invitado no tiene cuenta todavía.
+Cuentas del seed (contraseña `1234`): `rosa@cerca.cl`, `hector@cerca.cl` (adulto mayor), `camila@cerca.cl` (familiar, `admin`) y `cuidadora@losaromos.cl` (Paula, personal del ELEAM Los Aromos). Un miembro invitado no tiene cuenta todavía.
+
+El token del personal del ELEAM lleva `establecimientoId` en lugar de `grupoId`. `requireAuth` (rutas de grupo) lo rechaza con 403 y `requireEleam` exige ese rol.
 
 ## 4. Estructura
 
@@ -159,12 +170,14 @@ Todas devuelven JSON. Errores: `{ message, errors? }` con 400, 401, 403, 404 o 4
 
 ### Fase D — lo que falta del producto
 
-| # | Qué |
-|---|---|
-| 14 | `POST /medicamentos/:id/compras` (`{ unidades }`): "ya compré" |
-| 15 | Alerta de umbral en el servidor al consumir, con `MockNotifier` |
-| 16 | Vista ELEAM: `GSI1`, rol `eleam`, `GET /eleam/ronda`, `POST /eleam/ronda/marcar` |
-| 17 | WhatsApp con Twilio |
+| # | Qué | Detalle |
+|---|---|---|
+| 14 | `POST /medicamentos/:id/compras` (`{ unidades, at? }`): "ya compré" | Permiso `edita`. Transacción: suma unidades + movimiento `COMPRA`. Devuelve `stockDias` y `semaforo` |
+| 15 | Alerta de umbral en el servidor al consumir | Al registrar una toma (app o ronda), si el semáforo empeora (verde → amarillo, amarillo → rojo) se avisa una vez por cruce al responsable de la compra y a los `admin` con teléfono. Se guarda como `ALERTA` y la familia la ve en "Avisos" |
+| 16 | Vista ELEAM | `GSI1`, rol `eleam`. `GET /eleam/ronda?fecha=` trae las dosis del día de todos los residentes. `POST /eleam/ronda/marcar { fecha, hora, excepciones: [{ medId, motivo }] }` da como entregadas todas las pendientes de esa hora salvo las excepciones, que quedan como `OMISION` y avisan a la familia. Repetirla no duplica nada |
+| 17 | WhatsApp con Twilio | Interfaz `send({ to, body })` en `src/notify/notifier.js`: `TwilioWhatsAppNotifier` (API REST, sin SDK) si están `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` y `TWILIO_WHATSAPP_FROM`; si no, `MockNotifier`. `WHATSAPP_DEMO_TO` manda todo al teléfono de la demo. Un envío fallido nunca hace fallar la acción |
+
+Motivos de una dosis no dada: `rechazo`, `dormido`, `ausente`, `sin_stock`, `otro`.
 
 ### Integración con el front
 
@@ -209,17 +222,33 @@ Todo el estado del front pasa por `frontend/src/context/AppContext.jsx`: las pan
 
 ## 6. Estado
 
-**Fases A, B y C desplegadas en `dev` y conectadas al front (1 de octubre de 2026).** Todas las acciones del front tienen su endpoint (ver "Integración con el front"). Quedan las de la fase D.
+**Fases A, B y C desplegadas en `dev` y conectadas al front (1 de octubre de 2026).** Todas las acciones del front tienen su endpoint (ver "Integración con el front").
+
+**Fase D implementada, probada y conectada al front; falta desplegarla** (ver "Desplegar la fase D" abajo).
+
+- Front: "Ya compré" en Remedios (familiar `edita`), semáforo del stock, dosis "No se dio" con su motivo en las vistas de familia y adulto mayor, alertas del servidor en "Avisos" con el resultado del envío por WhatsApp, teléfono al invitar, y la pantalla `/eleam` (ronda por hora con excepciones). La vista ELEAM solo existe con servidor; en modo local no aparece.
+- Seed: Paula (personal del ELEAM Los Aromos) y dos residentes más de otras familias (Elena Soto y Luis Rojas), con stocks pensados para la ronda de las 12:30: el omeprazol de Héctor cruza a rojo, el paracetamol de Elena cruza a amarillo y el calcio de Luis ya está en rojo.
+- Tests: `npm test` corre 44 pruebas. Además de las unitarias, `test/faseD.test.js` levanta la API real contra una DynamoDB en memoria (`test/fakeDynamo.js`) y prueba por HTTP la ronda, las alertas, "ya compré", permisos, establecimientos y teléfonos.
+- Probado también en el navegador contra la API local: Paula marca la ronda de las 12:30 con una excepción, el stock baja, y Camila ve la toma, la alerta y la dosis no dada.
+
+**Desplegar la fase D:**
+
+1. En `backend/.env`, además de `JWT_SECRET` y `AWS_PROFILE`, opcionalmente las variables de Twilio y `WHATSAPP_DEMO_TO` (ver `.env.example`). Sin ellas las alertas quedan como "simuladas".
+2. `npm run deploy`. CloudFormation agrega el índice `GSI1` a la tabla existente; tarda unos minutos y la tabla sigue disponible.
+3. `POST /demo/reset` (botón "Aplicar y reiniciar" en el login): el seed nuevo carga el ELEAM, sus residentes y los atributos del índice.
+4. Regenerar el APK (`npm run android:apk` en `frontend/`) para que incluya las pantallas nuevas.
+
+Para WhatsApp en la demo: activar el sandbox de Twilio, unir el teléfono de la demo (enviar `join <palabra>` al número del sandbox) y poner ese número en `WHATSAPP_DEMO_TO`.
 
 **Verificado:**
 
-- `npm test`: 25 tests (stock, fechas, contraseñas, permisos, validación, `/estado`).
+- `npm test`: 25 tests de las fases A a C (stock, fechas, contraseñas, permisos, validación, `/estado`); hoy son 44 con la fase D.
 - 45 casos contra la API desplegada: tomas con descuento y devolución de stock, idempotencia, permisos por rol (`adulto`, `ve`, `edita`, `admin`), validaciones, agenda, remedios, personas, invitaciones, avisos vistos y reloj compartido.
 - La app en un navegador con dos sesiones a la vez: Rosa toca "Ya lo tomé", el stock baja de 22 a 21 días y Camila lo ve; Camila crea una actividad y a Rosa le aparece en "Mi día" con su aviso; ambas adoptan la hora de demo del reset; un token inválido vuelve al login con aviso.
 
 - URL: `https://a43vrc3yi3.execute-api.us-east-1.amazonaws.com`
 - Stack: `hackathonUDD-dev`. Tabla: `Cerca-dev`. Función: `hackathonUDD-dev-api`.
-- Tests: `npm test` (stock, fechas en hora de Chile, contraseñas, armado de `/estado` y filtro de privacidad).
+- Tests: `npm test` (stock, fechas en hora de Chile, contraseñas, armado de `/estado`, filtro de privacidad, alertas, notificadores y la API de punta a punta con DynamoDB en memoria).
 
 **Cómo correrlo:**
 
@@ -262,4 +291,8 @@ npm run deploy         # despliega a dev
 
 ## 9. Pendientes
 
-- Resolver la colisión de `CONTEXTO.md` y `contexto.md` (chocan en Windows y macOS).
+- Desplegar la fase D a `dev` (pasos en la sección 6).
+- Avisos de dosis no confirmadas enviados desde el servidor (hoy los calcula la app): necesitan una Lambda programada con EventBridge.
+- Privacidad editable ("la persona decide qué comparte").
+
+Resuelto: `contexto.md` se fusionó como anexo de `CONTEXTO.md` y se eliminó (chocaban en Windows y macOS).

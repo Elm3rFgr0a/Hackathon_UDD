@@ -43,14 +43,18 @@ npm run dev
 
 El frontend correrá en `http://localhost:5173`
 
-## 📱 App "Cerca" (frontend)
+## 📱 App "Autia" (frontend)
+
+Logo en `frontend/assets/autia-logo-original.png`. El nombre usa **Roca Two Bold** (fuente comercial, no incluida): ver `frontend/public/fonts/LEEME.md`.
 
 App móvil (React + Vite + React Router) con dos flujos según el rol de la cuenta:
 
 - **Adulto mayor** (`/adulto`): pocos botones, texto grande, un color por sección (remedios, mi día, consultas, próximos días, cerca de mí).
 - **Familiar** (`/familiar`): elige al adulto mayor que acompaña y gestiona resumen, agenda, remedios y personas.
 
-Cuentas de prueba (contraseña `1234`): `rosa@cerca.cl`, `hector@cerca.cl` (adulto mayor) y `camila@cerca.cl` (familiar).
+Cuentas de prueba (contraseña `1234`): `rosa@cerca.cl`, `hector@cerca.cl` (adulto mayor), `camila@cerca.cl` (familiar) y `cuidadora@losaromos.cl` (personal del ELEAM Los Aromos, solo con servidor).
+
+- **ELEAM** (`/eleam`): ronda de remedios por hora con todos los residentes del establecimiento. Un botón marca todas las dosis como dadas; las que fallan se registran con su motivo y se avisa a la familia (WhatsApp con Twilio o simulado). Detalle en [docs/PLAN_BACKEND.md](docs/PLAN_BACKEND.md).
 
 - Los datos de demostración viven en `src/data/seed.js` y se guardan en `localStorage`. En el login se pueden restablecer.
 - Las notificaciones se calculan en `src/lib/notifications.js` (1 h antes y 1 h después de cada actividad, remedios, consultas, stock bajo, etc.).

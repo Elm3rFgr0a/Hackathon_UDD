@@ -28,7 +28,15 @@ router.post('/auth/login', asyncHandler(async (req, res) => {
     permiso = miembro.permiso;
   }
 
-  const token = signToken({ personaId: cuenta.personaId, rol: cuenta.rol, grupoId: cuenta.grupoId, permiso });
+  // El personal de un ELEAM debe seguir activo en su establecimiento.
+  if (cuenta.rol === 'eleam') {
+    const personal = await getItem(keys.personal(cuenta.establecimientoId, cuenta.personaId));
+    if (!personal || personal.estado !== 'activo') throw new HttpError(401, CREDENCIALES_INVALIDAS);
+  }
+
+  const token = signToken({
+    personaId: cuenta.personaId, rol: cuenta.rol, grupoId: cuenta.grupoId, permiso, establecimientoId: cuenta.establecimientoId,
+  });
 
   // `sesion` tiene la misma forma que guarda hoy el front en localStorage.
   res.json({
@@ -38,6 +46,7 @@ router.post('/auth/login', asyncHandler(async (req, res) => {
       personId: cuenta.personaId,
       selectedElderId: cuenta.rol === 'adulto' ? cuenta.personaId : null,
       permiso: permiso ?? null,
+      ...(cuenta.rol === 'eleam' && { establecimientoId: cuenta.establecimientoId }),
     },
   });
 }));

@@ -1,13 +1,19 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { FilledIcon, Icon } from '../components/Icon'
+import { API_ENABLED } from '../api/client'
+import { Icon } from '../components/Icon'
+import logo from '../assets/autia-logo.png'
 
 const DEMO = [
   { email: 'rosa@cerca.cl', who: 'Rosa', rol: 'Adulto mayor' },
   { email: 'hector@cerca.cl', who: 'Héctor', rol: 'Adulto mayor' },
   { email: 'camila@cerca.cl', who: 'Camila', rol: 'Familiar' },
+  // La vista ELEAM reúne residentes de varias familias: solo existe con el servidor.
+  ...(API_ENABLED ? [{ email: 'cuidadora@losaromos.cl', who: 'Paula', rol: 'ELEAM Los Aromos' }] : []),
 ]
+
+const HOME = { adulto: '/adulto', familiar: '/familiar', eleam: '/eleam' }
 
 export default function Login() {
   const { login, resetDemo, simulated, now } = useApp()
@@ -26,7 +32,7 @@ export default function Login() {
     const res = await login(email, password)
     setBusy(false)
     if (!res.ok) return setError(res.error)
-    navigate(res.rol === 'adulto' ? '/adulto' : '/familiar', { replace: true })
+    navigate(HOME[res.rol] ?? '/login', { replace: true })
   }
 
   const fill = (mail) => {
@@ -38,8 +44,8 @@ export default function Login() {
   return (
     <main className="login">
       <div className="brand">
-        <span className="brand__mark"><FilledIcon name="heart" size={36} /></span>
-        <h1>Cerca</h1>
+        <img className="brand__logo" src={logo} alt="" />
+        <h1 className="wordmark">Autia</h1>
         <p>Tus remedios, tu día y tu familia, siempre a la mano.</p>
       </div>
 

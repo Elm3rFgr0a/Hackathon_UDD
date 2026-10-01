@@ -13,7 +13,7 @@ const ERROR_MS = 6000
 const MAX_VISTOS = 200
 
 // Estado vacío con la misma forma que devuelve GET /estado.
-const EMPTY_STATE = { elders: [], members: [], medications: [], activities: [], nearby: [], intakes: {}, attendance: {}, seen: {} }
+const EMPTY_STATE = { elders: [], members: [], medications: [], activities: [], nearby: [], intakes: {}, attendance: {}, omissions: {}, seen: {} }
 
 // Si la URL trae ?hora=, esa hora manda sobre el reloj compartido del servidor.
 const URL_HAS_HORA = new URLSearchParams(window.location.search).has('hora')
@@ -190,7 +190,8 @@ export function AppProvider({ children }) {
   /** Trae el estado del servidor. No lo aplica si hay acciones en curso: se pedirá de nuevo al terminar. */
   const refresh = useCallback(async () => {
     const s = sessionRef.current
-    if (!API_ENABLED || !s?.token) return
+    // El personal del ELEAM no tiene grupo: su pantalla pide la ronda por su cuenta.
+    if (!API_ENABLED || !s?.token || s.rol === 'eleam') return
     try {
       const data = await request('GET', '/estado', undefined, s.token)
       if (pending.current > 0 || sessionRef.current !== s) return
@@ -342,6 +343,25 @@ export function AppProvider({ children }) {
         else send('POST', '/medicamentos', { ...med, id })
       },
 
+      /** "Ya compré": suma unidades al stock del remedio. */
+      registerPurchase: (medId, unidades) => {
+        update((s) => ({
+          medications: s.medications.map((m) => {
+            if (m.id !== medId) return m
+            const consumo = (m.unidadesPorToma ?? 1) * m.horarios.length
+            if (typeof m.stockUnidades !== 'number') {
+              // Modo local: el stock se lleva en días.
+              return { ...m, stockDias: m.stockDias + (consumo ? Math.floor(unidades / consumo) : 0) }
+            }
+            const stockUnidades = m.stockUnidades + unidades
+            const dias = consumo ? Math.floor(stockUnidades / consumo) : m.stockDias
+            const semaforo = dias <= 3 ? 'rojo' : dias <= (m.umbralDias ?? 7) ? 'amarillo' : 'verde'
+            return { ...m, stockUnidades, stockDias: dias, semaforo }
+          }),
+        }))
+        send('POST', `/medicamentos/${encodeURIComponent(medId)}/compras`, { unidades, at: stamp() })
+      },
+
       removeMedication: (id) => {
         update((s) => ({ medications: s.medications.filter((m) => m.id !== id) }))
         send('DELETE', `/medicamentos/${encodeURIComponent(id)}`)
@@ -381,11 +401,11 @@ export function AppProvider({ children }) {
   )
 
   const value = useMemo(
-    () => ({ state, now, simulated, resetClock, session, login, logout, selectElder, resetDemo, apiEnabled: API_ENABLED, ...actions }),
-    [state, now, simulated, resetClock, session, login, logout, selectElder, resetDemo, actions],
+    () => ({ state, now, simulated, resetClock, session, login, logout, selectElder, resetDemo, apiEnabled: API_ENABLED, handleApiError: handleError, applyServerClock, ...actions }),
+    [state, now, simulated, resetClock, session, login, logout, selectElder, resetDemo, handleError, applyServerClock, actions],
   )
 
-  const blocking = API_ENABLED && Boolean(session?.token) && !loaded
+  const blocking = API_ENABLED && Boolean(session?.token) && session?.rol !== 'eleam' && !loaded
 
   return (
     <AppContext.Provider value={value}>

@@ -1,6 +1,6 @@
 # CONTEXTO.md — Hack4Seniors UDD 2026
 
-Documento de contexto del proyecto **Cerca**: problema, solución, decisiones técnicas, modelo de acceso y prioridades. Reúne la base del equipo (`contexto.md`), el diseño inicial de datos (`BDD.md`) y lo ya construido en el frontend. El detalle de base de datos, login y APIs está en [docs/PLAN_BACKEND.md](docs/PLAN_BACKEND.md).
+Documento de contexto del proyecto **Autia** (antes llamado Cerca): problema, solución, decisiones técnicas, modelo de acceso y prioridades. Reúne la base original del equipo (anexo al final), el diseño inicial de datos (`BDD.md`) y lo ya construido en el frontend. El detalle de base de datos, login y APIs está en [docs/PLAN_BACKEND.md](docs/PLAN_BACKEND.md).
 
 ## 1. Contexto
 
@@ -27,7 +27,7 @@ Las personas mayores enfrentan dificultades para mantener su independencia, espe
 
 **Desafío:** una sola fuente de información sobre la salud y la rutina de la persona mayor, que ahorre tiempo de coordinación a su red de apoyo sin quitarle el control.
 
-## 3. Solución: Cerca
+## 3. Solución: Autia
 
 Servicio no invasivo centrado en la **autonomía guiada**: acompañar sin restar independencia. La persona mayor y su red de apoyo gestionan juntas su calendario, sus remedios y sus alarmas.
 
@@ -76,13 +76,12 @@ Reemplaza el modelo de tenants ELEAM/FAMILIA de versiones anteriores. El fronten
   - Reloj de demo: `?hora=13:02` en la URL; `?hora=real` vuelve a la hora real.
   - Cuentas de prueba: `rosa@cerca.cl`, `hector@cerca.cl`, `camila@cerca.cl` (contraseña `1234`).
   - Única llamada al backend: `POST /users` al añadir un adulto mayor (si falla, guarda local).
-- **Backend** (`backend/`): una Lambda (`nodejs22.x`) con Express y la tabla `Cerca-dev`. Fase A desplegada: login, `GET /estado` y reset de la demo. Detalle y estado en [docs/PLAN_BACKEND.md](docs/PLAN_BACKEND.md).
-- **Documentos:** `contexto.md` (base del equipo), `BDD.md` (diseño inicial de datos), este archivo y el plan del backend.
+- **Backend** (`backend/`): una Lambda (`nodejs22.x`) con Express y la tabla `Cerca-dev`. Fases A, B y C desplegadas y conectadas al front; fase D ("ya compré", alertas en el servidor, vista ELEAM y WhatsApp) implementada y probada, pendiente de deploy. Detalle y estado en [docs/PLAN_BACKEND.md](docs/PLAN_BACKEND.md).
+- **Documentos:** este archivo (incluye la base original del equipo como anexo), `BDD.md` (diseño inicial de datos) y el plan del backend.
 
 **Desajustes conocidos:**
 - El stock del front es un número fijo de días (`stockDias`); el backend lo pasa a unidades con consumo real.
-- `CONTEXTO.md` y `contexto.md` chocan en sistemas de archivos que no distinguen mayúsculas (Windows, macOS). Hay que fusionarlos o renombrar uno.
-- Aún no existen la vista ELEAM, el "ya compré" ni la configuración de privacidad.
+- Aún no existe la configuración de privacidad editable ("la persona decide qué comparte").
 
 ## 6. Decisiones tecnológicas
 
@@ -131,6 +130,30 @@ Detalle en [docs/PLAN_BACKEND.md](docs/PLAN_BACKEND.md), sección 5.
 
 ## 9. Pendientes por decidir
 
-- Fusionar `contexto.md` en este archivo y eliminar el duplicado.
 - Coordinar con el front el cambio de `AppContext` a la API.
-- Tamaño de la "caja estándar" para "ya compré" (propuesta: 30 unidades, editable).
+- Tamaño de la "caja estándar" para "ya compré": se usa 30 unidades como valor inicial, editable en el formulario.
+
+## Anexo: base original del equipo
+
+Texto de la planificación inicial (antes en `contexto.md`, que chocaba con este archivo en Windows y macOS). Se conserva como referencia; donde difiere, mandan las secciones anteriores (por ejemplo, el front es Vite + React y no Next.js, y el login es simple en vez de Cognito).
+
+**Problema.** Las personas mayores enfrentan dificultades asociadas al envejecimiento y a la necesidad de mantener su independencia mediante una autonomía guiada, especialmente en el manejo de su salud, rutinas diarias y tratamientos médicos.
+- *Autonomía guiada:* acompañamiento y asistencia sin restar independencia, facilitando el seguimiento de sus actividades y su salud.
+- *Gestión de tratamientos:* recordar horarios y dosis resulta complejo (el 83 % de los adultos mayores en Chile consume al menos un medicamento de forma regular y más del 30 % presenta polifarmacia).
+- *Carga en el entorno de cuidados:* cerca de 63.832 mujeres en Chile han debido dejar sus empleos para cuidar a personas mayores, lo que hace indispensable el apoyo familiar organizado.
+
+**Solución propuesta.** Servicio no invasivo centrado en la autonomía guiada. La persona mayor y sus familiares o tutores gestionan, editan y organizan directamente su calendario y las alarmas de sus medicamentos, con seguimiento continuo de la salud y el respaldo de su red de apoyo y de los centros de cuidado (ELEAM).
+
+**Público objetivo.**
+- *Adultos mayores (protagonistas activos):* gestionan de forma directa y autónoma sus calendarios, alarmas y recordatorios.
+- *Familiares y tutores cercanos:* agendan, editan en conjunto el calendario de medicamentos y siguen las alertas compartidas.
+- *ELEAM, casas de retiro e instituciones:* supervisión centralizada, administración y seguimiento formal del stock y del historial de múltiples residentes.
+
+**Funcionalidades principales.**
+- *Calendario y actividades:* la persona y su familia agendan tareas y eventos de forma autónoma.
+- *Alarmas y seguimiento de medicamentos:* avisos programados para la toma oportuna de remedios y su verificación.
+- *Centralización:* registro unificado de medicamentos, dosis, stock restante y responsable de la compra.
+- *Coordinación familiar e institucional (ELEAM):* reparto de las tareas de cuidado entre la familia y el personal, con control institucional.
+
+**Tecnologías propuestas al inicio:** Amazon DynamoDB, Amazon Cognito, AWS Lambda y Next.js / Node.js.
+
