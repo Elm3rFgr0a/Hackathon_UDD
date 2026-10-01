@@ -1,0 +1,35 @@
+service: hackathonUDD
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-east-1
+  environment:
+    ENVIRONMENT: ${self:provider.stage}
+
+functions:
+  hello:
+    handler: src/handlers/hello.handler
+    events:
+      - http:
+          path: hello
+          method: get
+          cors: true
+
+  users:
+    handler: src/handlers/users.handler
+    events:
+      - http:
+          path: users
+          method: get
+          cors: true
+      - http:
+          path: users
+          method: post
+          cors: true
+
+plugins:
+  - serverless-offline
+  - serverless-dotenv-plugin
