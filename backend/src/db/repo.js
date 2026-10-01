@@ -1,9 +1,61 @@
 // Operaciones genéricas sobre la tabla. Las rutas no hablan con DynamoDB
 // directamente: pasan por aquí.
 
-const { GetCommand, QueryCommand, BatchWriteCommand } = require('@aws-sdk/lib-dynamodb');
+const {
+  GetCommand, QueryCommand, BatchWriteCommand, PutCommand, UpdateCommand, DeleteCommand, TransactWriteCommand,
+} = require('@aws-sdk/lib-dynamodb');
 const { doc, TABLE } = require('./client');
 const { keys } = require('./keys');
+
+/** True si DynamoDB rechazó la escritura por una condición (registro ya existe / no existe). */
+const isConditionFailed = (err) => err?.name === 'ConditionalCheckFailedException';
+
+/** Motivos de cancelación de una transacción, en el mismo orden que sus operaciones. */
+const cancellationCodes = (err) =>
+  err?.name === 'TransactionCanceledException' ? (err.CancellationReasons ?? []).map((r) => r.Code) : null;
+
+/** Put. Con `ifNotExists`, falla con ConditionalCheckFailedException si ya existe. */
+async function putItem(item, { ifNotExists = false } = {}) {
+  await doc.send(new PutCommand({
+    TableName: TABLE,
+    Item: item,
+    ...(ifNotExists && { ConditionExpression: 'attribute_not_exists(PK)' }),
+  }));
+}
+
+/** Actualiza los campos dados de un registro que debe existir. Devuelve el registro actualizado. */
+async function updateFields(key, fields) {
+  const names = {};
+  const values = {};
+  const sets = Object.entries(fields).map(([k, v], i) => {
+    names[`#f${i}`] = k;
+    values[`:v${i}`] = v;
+    return `#f${i} = :v${i}`;
+  });
+  const res = await doc.send(new UpdateCommand({
+    TableName: TABLE,
+    Key: key,
+    UpdateExpression: `SET ${sets.join(', ')}`,
+    ConditionExpression: 'attribute_exists(PK)',
+    ExpressionAttributeNames: names,
+    ExpressionAttributeValues: values,
+    ReturnValues: 'ALL_NEW',
+  }));
+  return res.Attributes;
+}
+
+async function deleteItem(key) {
+  await doc.send(new DeleteCommand({ TableName: TABLE, Key: key }));
+}
+
+/** TransactWrite con operaciones ya armadas ({ Put }, { Update }, { Delete }); agrega TableName. */
+async function transact(ops) {
+  const TransactItems = ops.map((op) => {
+    const [tipo, params] = Object.entries(op)[0];
+    return { [tipo]: { TableName: TABLE, ...params } };
+  });
+  await doc.send(new TransactWriteCommand({ TransactItems }));
+}
 
 const BATCH_SIZE = 25; // máximo de DynamoDB por BatchWrite
 const MAX_REINTENTOS = 5;
@@ -55,4 +107,7 @@ async function deletePartition(pk) {
   return items.length;
 }
 
-module.exports = { getItem, getCuenta, queryPartition, putMany, deleteMany, deletePartition };
+module.exports = {
+  isConditionFailed, cancellationCodes,
+  getItem, getCuenta, queryPartition, putItem, updateFields, deleteItem, transact, putMany, deleteMany, deletePartition,
+};
