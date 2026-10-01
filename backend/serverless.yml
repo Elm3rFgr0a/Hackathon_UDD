@@ -2,62 +2,78 @@ service: hackathonUDD
 
 frameworkVersion: '3'
 
+# Carga backend/.env para resolver ${env:...} (JWT_SECRET).
+useDotenv: true
+
 provider:
   name: aws
-  runtime: nodejs18.x
+  runtime: nodejs22.x
   region: us-east-1
+  # Perfil local de AWS (ver docs/PLAN_BACKEND.md). La cuenta es compartida con otros proyectos.
+  profile: hackaton
+  stage: ${opt:stage, 'dev'}
+  memorySize: 512
+  timeout: 10
+  httpApi:
+    cors: true
   environment:
-    ENVIRONMENT: ${self:provider.stage}
-    USUARIOS_TABLE: ${self:custom.usuariosTable}
+    TABLE_NAME: ${self:custom.tableName}
+    JWT_SECRET: ${env:JWT_SECRET}
+    APP_TZ: America/Santiago
   iam:
     role:
       statements:
         - Effect: Allow
           Action:
-            - dynamodb:PutItem
             - dynamodb:GetItem
-            - dynamodb:Scan
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:Query
+            - dynamodb:BatchWriteItem
+            - dynamodb:TransactWriteItems
           Resource:
-            - !GetAtt UsuariosTable.Arn
+            - !GetAtt CercaTable.Arn
+            - !Join ['', [!GetAtt CercaTable.Arn, '/index/*']]
 
 custom:
-  usuariosTable: Usuarios-${sls:stage}
+  tableName: Cerca-${sls:stage}
   prune:
     automatic: true
     number: 1
+  serverless-offline:
+    httpPort: 3000
+
+package:
+  patterns:
+    - '!**/*.test.js'
+    - '!.env*'
+    - '!Dockerfile'
 
 functions:
-  users:
-    handler: src/handlers/users/usersHandler.handler
+  api:
+    handler: src/handler.handler
     events:
-      - http:
-          path: users
-          method: post
-          cors: true
-      - http:
-          path: users
-          method: get
-          cors: true
-      - http:
-          path: users/{idUsuario}
-          method: get
-          cors: true
+      - httpApi: '*'
 
 plugins:
   - serverless-offline
-  - serverless-dotenv-plugin
   - serverless-prune-plugin
 
 resources:
   Resources:
-    UsuariosTable:
+    CercaTable:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: ${self:custom.usuariosTable}
+        TableName: ${self:custom.tableName}
         BillingMode: PAY_PER_REQUEST
         AttributeDefinitions:
-          - AttributeName: idUsuario
+          - AttributeName: PK
+            AttributeType: S
+          - AttributeName: SK
             AttributeType: S
         KeySchema:
-          - AttributeName: idUsuario
+          - AttributeName: PK
             KeyType: HASH
+          - AttributeName: SK
+            KeyType: RANGE
