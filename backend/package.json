@@ -1,23 +1,25 @@
 {
   "name": "hackathon-backend",
   "version": "1.0.0",
-  "description": "Serverless backend for Hackathon UDD",
-  "main": "handler.js",
+  "description": "Backend de Cerca (Hackathon UDD): una Lambda + DynamoDB",
+  "main": "src/handler.js",
   "scripts": {
     "dev": "serverless offline start",
     "deploy": "serverless deploy",
-    "logs": "serverless logs -f",
-    "remove": "serverless remove"
-  },
-  "dependencies": {
-    "aws-lambda": "^1.0.0",
-    "axios": "^1.6.0",
-    "dotenv": "^16.3.1"
+    "logs": "serverless logs -f api",
+    "remove": "serverless remove",
+    "test": "node --test"
   },
   "devDependencies": {
     "serverless": "^3.38.0",
-    "serverless-offline": "^13.2.0",
-    "serverless-dotenv-plugin": "^4.0.2",
+    "serverless-offline": "^13.10.1",
     "serverless-prune-plugin": "^2.0.2"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1144.0",
+    "@aws-sdk/lib-dynamodb": "^3.1144.0",
+    "express": "^4.22.3",
+    "jsonwebtoken": "^9.0.3",
+    "serverless-http": "^3.2.0"
   }
 }

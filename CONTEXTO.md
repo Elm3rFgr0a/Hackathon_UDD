@@ -1,6 +1,6 @@
 # CONTEXTO.md — Hack4Seniors UDD 2026
 
-Documento de contexto del proyecto: problema, solución, decisiones técnicas, modelo de tenants y orden de prioridades. Complementa al `CLAUDE.md` (modelo de datos detallado, API y guion de demo).
+Documento de contexto del proyecto **Cerca**: problema, solución, decisiones técnicas, modelo de acceso y prioridades. Reúne la base del equipo (`contexto.md`), el diseño inicial de datos (`BDD.md`) y lo ya construido en el frontend. El detalle de base de datos, login y APIs está en [docs/PLAN_BACKEND.md](docs/PLAN_BACKEND.md).
 
 ## 1. Contexto
 
@@ -18,162 +18,119 @@ Documento de contexto del proyecto: problema, solución, decisiones técnicas, m
 
 ## 2. Problema
 
-Una persona mayor que toma varios medicamentos de forma permanente depende de información repartida entre ella, su familia y, si vive en un ELEAM (Establecimiento de Larga Estadía para Adultos Mayores), el personal que la cuida. Nadie tiene la visión completa. Como consecuencia:
+Las personas mayores enfrentan dificultades para mantener su independencia, especialmente en el manejo de su salud, sus rutinas y sus tratamientos:
 
-- Los medicamentos se acaban sin aviso.
-- Las dosis se pierden en los cambios de turno.
-- Los cuidadores pierden tiempo coordinando por teléfono, cuadernos, Excel y grupos de WhatsApp.
+- **Gestión de tratamientos:** recordar horarios y dosis es complejo. El 83 % de las personas mayores en Chile consume al menos un medicamento de forma regular y más del 30 % presenta polifarmacia.
+- **Carga en el entorno de cuidados:** cerca de 63.832 mujeres en Chile han dejado su empleo para cuidar a personas mayores. El apoyo familiar organizado es indispensable.
+- **Información repartida:** qué toma, cuánto le queda y quién debe comprarlo está repartido entre la persona, su familia y, si vive en un ELEAM (Establecimiento de Larga Estadía para Adultos Mayores), el personal que la cuida. Los medicamentos se acaban sin aviso y la coordinación se hace por teléfono, cuadernos, Excel y grupos de WhatsApp.
+- **Herramientas invasivas:** las existentes vigilan a la persona como a un paciente y le quitan autonomía.
 
-Las herramientas existentes vigilan a la persona como a un paciente y le quitan autonomía sobre su tratamiento.
+**Desafío:** una sola fuente de información sobre la salud y la rutina de la persona mayor, que ahorre tiempo de coordinación a su red de apoyo sin quitarle el control.
 
-**Desafío:** una sola fuente de información sobre los medicamentos que ahorre tiempo de coordinación a la familia y al ELEAM, sin quitarle a la persona mayor el control de su tratamiento.
+## 3. Solución: Cerca
 
-**Usuario principal:** la persona cuidadora (familiar o personal del ELEAM). **Usuario participante:** la persona mayor.
+Servicio no invasivo centrado en la **autonomía guiada**: acompañar sin restar independencia. La persona mayor y su red de apoyo gestionan juntas su calendario, sus remedios y sus alarmas.
 
-## 3. Solución propuesta
+**Público objetivo:**
+- **Personas mayores (protagonistas activas):** gestionan su día, sus remedios y sus recordatorios.
+- **Familiares y tutores:** agendan, editan y reciben alertas compartidas.
+- **ELEAM:** supervisión centralizada del stock y del historial de muchos residentes.
 
-Un sistema multi-tenant con dos tipos de tenant (`ELEAM` y `FAMILIA`) y tres vistas:
-
-| Vista | Rol | Qué hace |
-|---|---|---|
-| Persona mayor | `ADULTO_MAYOR` | Ve sus tomas del día, marca "Ya me la tomé", ve cuántos días le quedan y decide qué comparte. |
-| Grupo familiar | `FAMILIAR` | Ve stock y días restantes, registra "ya compré", recibe alertas por WhatsApp. Sirve tanto para familias en casa como para apoderados de un residente de ELEAM. |
-| ELEAM | `CUIDADOR_ELEAM` / `ADMIN_ELEAM` | Ronda por horario, registro de excepciones, semáforo de stock de todos los residentes. |
+**Funcionalidades:**
+1. **Calendario y actividades:** la persona y su familia agendan actividades y consultas. Incluye actividades cercanas de la municipalidad ("Cerca de mí").
+2. **Remedios y alarmas:** horarios, confirmación de cada toma ("Ya lo tomé") y avisos escalonados a la familia si no se confirma.
+3. **Centralización:** medicamentos, dosis, stock restante y responsable de la compra en un solo lugar.
+4. **Coordinación familiar e institucional:** permisos por miembro del núcleo y, en una fase posterior, vista ELEAM.
 
 **Mecanismos centrales:**
-
-1. **Ronda con excepciones.** "Marcar todas como dadas" y se registra solo lo que falló (`OMITIDA`, `RECHAZADA`, `SIN_STOCK`).
-2. **Consumo automático de stock.** Cada dosis dada o tomada descuenta unidades.
-3. **Predicción de quiebre.** `diasRestantes = floor(stockActual / (dosisPorToma × horarios.length))`. Semáforo: rojo ≤ 3 días, amarillo ≤ `umbralDiasAlerta` (7 por defecto), verde en el resto.
-4. **Alerta por WhatsApp** al responsable de compra cuando se cruza el umbral (máximo una cada 24 h por tratamiento), con respuesta "COMPRADO" que actualiza el stock.
+- **Consumo automático de stock:** cada toma confirmada descuenta unidades.
+- **Predicción de quiebre:** días restantes y semáforo (rojo ≤ 3 días, amarillo ≤ 7, verde en el resto).
+- **Avisos:** a la persona mayor a la hora de cada remedio y 15 min después; a la familia si no confirma en 30 min, cuando el stock baja de 7 días y al cierre del día.
+- **Ronda ELEAM con excepciones (fase D):** "marcar todas como dadas" y registrar solo lo que falló.
 
 **Principios de diseño (obligatorios):**
-
-1. **Autonomía primero.** La persona mayor marca sus tomas; los demás intervienen solo si ella no puede o no responde.
-2. **Minimización de datos.** Sin fotos de la persona, geolocalización ni diagnósticos. Sin campos "por si acaso".
+1. **Autonomía primero.** La persona mayor confirma sus tomas; los demás intervienen solo si ella no puede o no responde.
+2. **Minimización de datos.** Sin fotos, geolocalización ni diagnósticos. Sin campos "por si acaso".
 3. **La persona decide qué comparte** con su familia.
-4. **Accesible.** Letra grande, alto contraste, botones grandes, pocas acciones por pantalla, español de Chile.
-5. **WhatsApp antes que app.**
+4. **Accesible.** Letra grande, alto contraste, botones grandes, una acción principal por pantalla, español de Chile.
+5. **WhatsApp antes que app** (fase D).
 
-## 4. Modelo de tenants y acceso
+## 4. Modelo de acceso
 
-Una duda clave es cómo se relaciona una persona que vive en un ELEAM con su familia, que vive en otra parte.
+Reemplaza el modelo de tenants ELEAM/FAMILIA de versiones anteriores. El frontend mostró que una misma familiar (Camila) acompaña a una persona en casa (Rosa) y a otra en un ELEAM (Héctor) con una sola cuenta, así que el tenant no puede ser el ELEAM.
 
-**Regla: el tenant es quien custodia y opera los datos.** Un residente pertenece al tenant del ELEAM y no existe un tenant `FAMILIA` para él. Su familiar es un `Usuario` con rol `FAMILIAR` dentro del tenant del ELEAM, ligado al residente por un `VinculoFamiliar`.
+**Regla: la unidad de datos es el grupo familiar (núcleo).** Todo lo de un grupo (personas mayores, miembros, remedios, eventos, tomas) vive en la misma partición de DynamoDB.
 
-Una persona mayor es visible para:
+- Un **miembro** del núcleo tiene un permiso: `admin` (gestiona personas e invitaciones), `edita` (remedios y agenda) o `ve` (solo lectura).
+- Una **persona mayor** con cuenta ve y gestiona lo suyo.
+- El **grupo se toma siempre del token de sesión**, nunca de lo que envía el cliente. Nadie puede leer otro grupo.
+- El **ELEAM** es un atributo de la persona (`establecimientoId`). En la fase D, un índice secundario permitirá al personal del ELEAM ver a todos sus residentes, sin importar a qué grupo pertenecen.
 
-- el personal de su tenant,
-- ella misma, si usa la app,
-- los familiares vinculados, filtrados por sus preferencias de privacidad.
-
-Así se mantiene la regla "toda consulta filtra por `tenantId`" y no hay consultas entre tenants.
-
-**Reglas derivadas:**
-
-1. **Quién crea el vínculo:** lo crea el `ADMIN_ELEAM`, no la familiar. El ELEAM controla quién ve a un residente.
-2. **Quién decide la privacidad:** la persona mayor, si es `AUTOVALENTE` o `PARCIAL`. Si es `DEPENDIENTE`, decide el ELEAM junto con su apoderado.
-3. **Qué ve un familiar por defecto:** stock y días restantes sí; historial de tomas no, salvo que se habilite.
-4. **Webhook de WhatsApp:** es la única consulta que no parte de un tenant conocido. Resuelve teléfono → usuario → vínculo → tratamiento, así que necesita un índice por teléfono.
-
-**Limitación conocida:** una persona con familiares en dos lugares (una madre en un ELEAM y un padre en casa) necesitaría dos usuarios. En producción, la evolución natural es un usuario con **membresías en varios tenants**. Va en la lámina de próximos pasos.
+**Limitación conocida:** cada persona y cada miembro pertenecen a un solo grupo. La evolución natural es un usuario con membresías en varios grupos. Va en la lámina de próximos pasos.
 
 ## 5. Estado actual del repositorio
 
-El repo es un starter genérico, sin lógica de dominio:
-
-- **Backend:** Serverless Framework v3, Node 18, `serverless-offline` y `serverless-prune-plugin` (conserva solo la última versión desplegada). Un único handler, [usersHandler.js](backend/src/handlers/users/usersHandler.js), con `POST /users`, `GET /users` y `GET /users/{idUsuario}`. Valida `nombreCompleto`, `rut` y `fechaNacimiento`, genera ids con `randomUUID` y guarda en un `Map` en memoria (se pierde entre invocaciones en Lambda). JS plano, una función por ruta.
-- **Frontend:** React 18 + Vite + Axios, una pantalla de usuarios del starter. Las URLs a `localhost:3000` están hardcodeadas y el proxy `/api` de Vite no se usa.
-- **Infra:** `docker-compose.yml` y Dockerfiles por servicio.
-- **Falta todo el dominio:** modelo, seed, lógica de stock, tres vistas, notificaciones, tests, TypeScript y persistencia real.
+- **Frontend** (`frontend/`): prototipo completo de Cerca en React + Vite + React Router (JS). Implementa los flujos de adulto mayor (inicio, remedios, mi día, consultas, próximos días, cerca de mí, avisos) y familiar (elegir persona, resumen, agenda, remedios, personas, formularios, avisos).
+  - Todo el estado vive en `localStorage`, con datos de `src/data/seed.js`.
+  - Las reglas (estado de cada toma, avisos) se calculan en el cliente: `src/lib/selectors.js` y `src/lib/notifications.js`.
+  - Reloj de demo: `?hora=13:02` en la URL; `?hora=real` vuelve a la hora real.
+  - Cuentas de prueba: `rosa@cerca.cl`, `hector@cerca.cl`, `camila@cerca.cl` (contraseña `1234`).
+  - Única llamada al backend: `POST /users` al añadir un adulto mayor (si falla, guarda local).
+- **Backend** (`backend/`): una Lambda (`nodejs22.x`) con Express y la tabla `Cerca-dev`. Fase A desplegada: login, `GET /estado` y reset de la demo. Detalle y estado en [docs/PLAN_BACKEND.md](docs/PLAN_BACKEND.md).
+- **Documentos:** `contexto.md` (base del equipo), `BDD.md` (diseño inicial de datos), este archivo y el plan del backend.
 
 **Desajustes conocidos:**
-
-- El frontend envía `{ name, email }` y muestra `user.name` y `user.email`, pero el backend ahora exige `nombreCompleto`, `rut` y `fechaNacimiento`. El formulario actual responde 400. Se reemplaza al construir las vistas reales.
-- El handler de usuarios pide `rut`, que no está en nuestro modelo y choca con la minimización de datos y la regla de datos ficticios. No debe usarse como base del modelo sin alinearlo.
-- El patrón de una función por ruta en JS difiere de la decisión de una sola Lambda en TypeScript (sección 6). Hay que acordarlo con el autor del handler antes de que se replique.
-- El `README.md` aún describe el starter original (`/hello`, usuarios con name y email) y no coincide con el repo.
-- Dependencia `aws-lambda` innecesaria en `backend/package.json`.
+- El stock del front es un número fijo de días (`stockDias`); el backend lo pasa a unidades con consumo real.
+- `CONTEXTO.md` y `contexto.md` chocan en sistemas de archivos que no distinguen mayúsculas (Windows, macOS). Hay que fusionarlos o renombrar uno.
+- Aún no existen la vista ELEAM, el "ya compré" ni la configuración de privacidad.
 
 ## 6. Decisiones tecnológicas
 
-| Tema | Decisión | Estado |
-|---|---|---|
-| Lenguaje | TypeScript estricto en front y back | Por migrar |
-| Frontend | React + Vite; accesibilidad antes que estética | Base existe |
-| Backend | Node + TypeScript sobre **AWS Lambda siempre**. Una sola función con un router (Express) envuelto con `serverless-http`, en vez de una función por ruta | Por construir |
-| Base de datos | **DynamoDB desde el inicio** | Por construir |
-| Notificaciones | Interfaz `Notifier`: `MockNotifier` (respaldo de la demo) y `TwilioWhatsAppNotifier`, elegidos con `NOTIFIER=mock\|twilio` | Por construir |
-| Credenciales | Solo en `.env`; `.env.example` en el repo | Por hacer |
+| Tema | Decisión |
+|---|---|
+| Lenguaje | JavaScript en front y back |
+| Frontend | React + Vite + React Router |
+| Backend | Una sola AWS Lambda (`nodejs22.x`) con Express + `serverless-http`, desplegada con Serverless Framework v3 |
+| Base de datos | DynamoDB en AWS desde el inicio: tabla única `Cerca-${stage}` con `PK`/`SK` |
+| Login | Simple: cuentas del seed, contraseña con `scrypt` y token JWT con `{ sub, rol, grupoId }`. Cognito queda para después |
+| Avisos | Hoy se calculan en el cliente. En el servidor (fase D): interfaz `Notifier` con `MockNotifier` (respaldo de la demo) y Twilio WhatsApp |
+| Credenciales | Perfil local de AWS `hackaton`. Nada de credenciales en el repo; `.env` local y `.env.example` versionado |
 
-**Por qué DynamoDB desde el inicio:** en Lambda la memoria no persiste entre cold starts ni se comparte entre instancias, así que un repositorio en memoria no sirve para probar en AWS. El `Repository` tendrá dos implementaciones desde el comienzo: memoria (tests y trabajo offline) y DynamoDB (local y AWS).
+**Cuenta de AWS:** `666607745921`, región `us-east-1`. Es compartida con otros proyectos (`LivinDex`, `PokeGO`), así que todos los recursos de este proyecto llevan el prefijo del servicio (`hackathonUDD-*`) o `Cerca-*`, y no se tocan los demás.
 
 ### Definiciones base
 
-- **DynamoDB:** base de datos NoSQL administrada por AWS, sin servidores que mantener y con cobro por uso. Sirve para multi-tenant porque cada entidad lleva `tenantId` y se consulta por él. Se accede por clave (partition key + sort key), no con consultas libres como en SQL, por lo que los patrones de acceso se diseñan de antemano.
-- **Patrón repositorio:** la lógica de negocio llama a una interfaz (por ejemplo `TratamientoRepository`) y no a la base directamente. Permite cambiar memoria por DynamoDB sin tocar la lógica.
-- **Multi-tenant:** un mismo sistema atiende a varios clientes (un ELEAM o una familia) con datos aislados por `tenantId`.
-- **Serverless / Lambda:** el código corre como funciones que AWS levanta bajo demanda, con bajo costo si hay poco uso.
-- **API Gateway:** puerta de entrada HTTP que enruta las peticiones a la Lambda.
-- **Seed:** datos ficticios iniciales. `POST /api/demo/reset` los restaura.
-- **Mock vs Twilio:** el mock guarda los mensajes y los muestra en una bandeja dentro de la app. Twilio los manda por WhatsApp real y necesita un webhook público (ngrok en local).
-- **Reloj de demo:** una fecha y hora configurables, para mostrar "la ronda de las 08:00" a cualquier hora del día.
+- **DynamoDB:** base de datos NoSQL administrada por AWS, sin servidores que mantener y con cobro por uso. Se accede por clave (partición + orden), así que los patrones de acceso se diseñan de antemano.
+- **Tabla única:** todas las entidades viven en una tabla, distinguidas por el prefijo de sus claves (`GRUPO#`, `MED#`, `TOMA#`). Un solo `Query` trae todo lo de un grupo.
+- **Lambda / serverless:** el código corre como una función que AWS levanta bajo demanda, con bajo costo si hay poco uso.
+- **API Gateway (HTTP API):** puerta de entrada HTTP que enruta las peticiones a la Lambda.
+- **JWT:** token firmado que el cliente envía en cada petición y que dice quién es, su rol y su grupo.
+- **Seed:** datos ficticios iniciales. `POST /demo/reset` los restaura.
 
-### Diseño inicial de DynamoDB (propuesta, por confirmar)
+## 7. Priorización
 
-- Tabla única con `PK = TENANT#<tenantId>` y `SK = <ENTIDAD>#<id>` (por ejemplo `TRATAMIENTO#t1`, `TOMA#2026-10-01T08:00#t1`). Un solo query por tenant trae lo que la vista necesita.
-- Índice secundario (GSI) por `telefonoWhatsApp`, para resolver el webhook.
-- Las tomas se ordenan por fecha en el `SK`, para consultar "la ronda de las 08:00" con un rango.
-- Para desarrollo local: DynamoDB Local (contenedor Docker) o directamente una tabla en AWS.
-- Modo de cobro `PAY_PER_REQUEST`; nada que dimensionar.
+Detalle en [docs/PLAN_BACKEND.md](docs/PLAN_BACKEND.md), sección 5.
 
-## 7. Priorización de módulos
+- **Fase A — base:** esqueleto, tabla, seed, login y `GET /estado`. Con esto el front se conecta al backend.
+- **Fase B — adulto mayor:** tomas con descuento de stock, asistencias, actividades cercanas, avisos vistos.
+- **Fase C — familiar:** remedios, eventos, personas, invitaciones.
+- **Fase D — producto completo:** "ya compré", alerta de umbral en el servidor, vista ELEAM, privacidad editable, WhatsApp con Twilio.
 
-**Nivel 0 — base (todo depende de esto)**
+**Fuera de alcance hoy:** onboarding real, Cognito, recuperación de contraseña, pagos, integraciones con farmacias.
 
-1. Monorepo TypeScript, tipos del dominio e interfaces de `Repository`.
-2. Tabla DynamoDB, repositorio sobre DynamoDB y repositorio en memoria para tests.
-3. Seed (ELEAM "Hogar Los Aromos", Familia Pérez) y reset.
-4. Lógica de stock (días restantes, semáforo, consumo) con tests simples.
-5. Reloj de demo.
-
-**Nivel 1 — núcleo de la demo**
-
-6. API en una sola Lambda: perfiles de demo, tratamientos con semáforo, ronda, marcar todas y excepciones, compras.
-7. Selector de perfil (login simulado).
-8. Vista ELEAM: ronda y semáforo.
-9. `MockNotifier`, bandeja de WhatsApp simulada y regla de alerta (umbral, una cada 24 h).
-10. Vista familiar: stock, "ya compré" desde la web y respuesta "COMPRADO" simulada.
-11. Vista persona mayor: tomas del día, "Ya me la tomé" y días restantes.
-
-**Nivel 2 — si el núcleo está listo**
-
-12. Preferencias de privacidad editables y respetadas en la vista familiar (sube al Nivel 1 si sobra tiempo: respalda el principio 3 y la pregunta del jurado sobre quién accede a los datos).
-13. Alerta escalonada de dosis omitida.
-14. Reporte de adherencia.
-
-**Nivel 3 — lo último**
-
-15. Twilio real (webhook y ngrok).
-16. QR por residente, aviso de vencimiento de receta, lectura de receta con IA.
-
-**Fuera de alcance hoy:** onboarding y registro, autenticación real, recuperación de contraseña, pagos, integraciones con farmacias, calendario de actividades (solo como lámina de próximos pasos).
-
-**Paralelización:** una vez listos el API y el seed, las tres vistas (8, 10, 11) pueden repartirse entre el equipo. El Nivel 0 conviene hacerlo entre pocos para no pelear por el contrato.
-
-**Riesgo principal:** el Nivel 1 es ambicioso para un día. Si el tiempo aprieta, el sacrificio razonable es la vista familiar completa, porque la alerta y la compra ya se pueden mostrar desde la bandeja simulada.
+**Riesgo principal:** la fase D contiene la ronda ELEAM y el WhatsApp, que eran parte del guion de demo original. Si no llegan, la demo se apoya en el flujo de adulto mayor y familiar que ya existe.
 
 ## 8. Seguridad y datos sensibles (para la pregunta del jurado)
 
 - Todos los datos de la demo son ficticios.
-- Cada consulta filtra por `tenantId`; los vínculos familiares los crea el administrador del ELEAM.
-- La persona mayor controla (o su apoderado, si es dependiente) qué comparte con su familia.
-- Hoy: login simulado y CORS abierto, solo para la demo.
-- En producción: autenticación real con el `tenantId` y el rol dentro del token, CORS restringido, cifrado en tránsito y en reposo (DynamoDB lo ofrece por defecto) y registro de accesos.
+- **No guardamos RUT:** no lo usa ninguna funcionalidad y es un identificador nacional que, junto a nombre y medicamentos, permite identificar a la persona. Se eliminó del front, del seed y de la API.
+- Sin geolocalización: la distancia de las actividades cercanas es un dato fijo del catálogo.
+- Cada petición se limita al grupo del token; los permisos (`admin`, `edita`, `ve`, `adulto`) se validan en el servidor.
+- Hoy: login simple con contraseñas de demo.
+- En producción: Cognito, CORS restringido, cifrado en tránsito y en reposo (DynamoDB lo trae por defecto) y registro de accesos.
 
 ## 9. Pendientes por decidir
 
-- Tamaño de la "caja estándar" por defecto para "ya compré" (propuesta: 30 unidades, editable en la web).
-- Si la tabla DynamoDB de desarrollo será local (Docker) o directamente en AWS.
-- Reparto de tareas entre las 4 personas.
-- Cuánto tiempo queda para Twilio.
+- Fusionar `contexto.md` en este archivo y eliminar el duplicado.
+- Coordinar con el front el cambio de `AppContext` a la API.
+- Tamaño de la "caja estándar" para "ya compré" (propuesta: 30 unidades, editable).
