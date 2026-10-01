@@ -11,6 +11,11 @@ app.get('/health', (req, res) => res.json({ ok: true, servicio: 'cerca-api', hor
 app.use(require('./routes/auth'));
 app.use(require('./routes/demo'));
 app.use(require('./routes/estado'));
+app.use(require('./routes/tomas'));
+app.use(require('./routes/agenda'));
+app.use(require('./routes/medicamentos'));
+app.use(require('./routes/personas'));
+app.use(require('./routes/vistos'));
 
 app.use((req, res) => res.status(404).json({ message: 'Ruta no encontrada' }));
 
