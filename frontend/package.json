@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:offline": "vite --mode offline",
     "build": "vite build",
+    "build:offline": "vite build --mode offline",
     "preview": "vite preview",
     "lint": "eslint . --ext .js,.jsx",
     "android:sync": "vite build && cap sync android",

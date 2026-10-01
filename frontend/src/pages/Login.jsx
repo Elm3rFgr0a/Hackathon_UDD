@@ -16,11 +16,15 @@ export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
 
   // El rol no se elige: viene con la cuenta (en producción, desde Amazon Cognito).
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault()
-    const res = login(email, password)
+    if (busy) return
+    setBusy(true)
+    const res = await login(email, password)
+    setBusy(false)
     if (!res.ok) return setError(res.error)
     navigate(res.rol === 'adulto' ? '/adulto' : '/familiar', { replace: true })
   }
@@ -59,7 +63,7 @@ export default function Login() {
         {error && (
           <p className="form-error" role="alert"><Icon name="alert" size={20} />{error}</p>
         )}
-        <button type="submit" className="btn-big press">Ingresar</button>
+        <button type="submit" className="btn-big press" disabled={busy} aria-busy={busy}>{busy ? 'Ingresando…' : 'Ingresar'}</button>
       </form>
 
       <section className="demo-accounts" aria-label="Cuentas de prueba">
