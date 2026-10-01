@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
-import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
+import { Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { Capacitor } from '@capacitor/core'
+import { App as CapApp } from '@capacitor/app'
 import { useApp } from './context/AppContext'
 import { NotificationHost } from './components/notifications'
 import { toHHMM } from './lib/dates'
@@ -29,6 +31,26 @@ function ScrollToTop() {
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [pathname])
+  return null
+}
+
+/**
+ * Botón atrás de Android: vuelve a la pantalla anterior; si no hay ninguna
+ * (inicio de cada flujo), cierra la app.
+ */
+function BackButtonHandler() {
+  const navigate = useNavigate()
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return undefined
+    const sub = CapApp.addListener('backButton', () => {
+      // React Router guarda en history.state.idx la posición dentro de la app.
+      if ((window.history.state?.idx ?? 0) > 0) navigate(-1)
+      else CapApp.exitApp()
+    })
+    return () => {
+      sub.then((h) => h.remove())
+    }
+  }, [navigate])
   return null
 }
 
@@ -67,6 +89,7 @@ export default function App() {
   return (
     <div className="app-frame">
       <ScrollToTop />
+      <BackButtonHandler />
       <Routes>
         <Route path="/login" element={session ? <Navigate to={homeFor(session)} replace /> : <Login />} />
 

@@ -73,7 +73,7 @@ function useTabSwipe() {
       drag.current = null
       if (!d || d.axis !== 'x') return
       const target = d.dx <= -SWIPE_MIN ? index + 1 : d.dx >= SWIPE_MIN ? index - 1 : -1
-      if (target >= 0 && target < TABS.length) navigate(TABS[target].to)
+      if (target >= 0 && target < TABS.length) navigate(TABS[target].to, { replace: true })
       else move(0, true)
     },
   }
@@ -140,7 +140,7 @@ export default function FamilyShell({ title, withElder = true, back, actions, na
       {nav && (
         <nav className="f-nav" aria-label="Principal">
           {TABS.map((t) => (
-            <NavLink key={t.to} to={t.to} className={({ isActive }) => (isActive ? 'active' : undefined)}>
+            <NavLink key={t.to} to={t.to} replace className={({ isActive }) => (isActive ? 'active' : undefined)}>
               <Icon name={t.icon} size={24} stroke={2.2} />
               {t.label}
             </NavLink>
