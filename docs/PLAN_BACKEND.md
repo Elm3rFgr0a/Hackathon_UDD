@@ -168,11 +168,54 @@ Todas devuelven JSON. Errores: `{ message, errors? }` con 400, 401, 403, 404 o 4
 
 ### Integración con el front
 
-En `AppContext.jsx`, el estado inicial pasa a venir de `GET /estado`, y cada acción (`takeDose`, `undoDose`, `setAttendance`, `addActivity`, `saveMedication`, etc.) llama a su endpoint y vuelve a pedir `/estado`. Las pantallas no cambian. Se coordina con quien mantiene el front.
+Todo el estado del front pasa por `frontend/src/context/AppContext.jsx`: las pantallas leen `state` y llaman acciones. `GET /estado` devuelve esa misma forma, así que la conexión se concentra en ese archivo.
+
+**Decisiones:**
+
+1. **Actualización optimista.** Cada acción cambia `state` al instante (como hoy) y en paralelo llama a la API. Al terminar se vuelve a pedir `/estado`. Si falla, se vuelve al estado del servidor y se muestra un aviso. Las pantallas no cambian ni se ponen lentas.
+2. **El cliente genera los ids** de lo que crea (persona, remedio, actividad, miembro). El backend los valida y los rechaza con 409 si ya existen. Así `addElder` y `addActivity` siguen siendo síncronas.
+3. **Reloj de demo compartido.** `POST /demo/reset { now }` guarda en el grupo el desfase entre la hora simulada y la real; `GET /estado` lo devuelve como `reloj: { offsetMs, desde }`. Cada dispositivo lo adopta cuando cambia (después de cada reset), salvo que la URL traiga `?hora=`. Así dos teléfonos ven la misma hora.
+4. **Sincronización.** El front vuelve a pedir `/estado` cada 15 s y al volver a la app. No aplica la respuesta mientras haya una acción en curso, para evitar parpadeos.
+5. **Modo local de respaldo.** Si `VITE_API_URL` está vacío (`npm run dev:offline`, `npm run build:offline`), la app funciona como antes, solo con `localStorage`. Es el plan B si falla la red en la presentación.
+6. **Sesión.** El token se guarda con la sesión. Un 401 cierra la sesión y vuelve al login.
+7. **Hora de cada registro.** Tomas, asistencias y actividades cercanas aceptan el `at` del cliente, para respetar la hora simulada.
+
+**Acciones del front y su endpoint:**
+
+| Acción | Endpoint | Quién puede |
+|---|---|---|
+| `login` | `POST /auth/login` | Cualquiera |
+| `resetDemo(hhmm?)` | `POST /demo/reset { now }` | Cualquiera |
+| `takeDose` / `undoDose` | `PUT` / `DELETE /tomas` | La persona misma, o un familiar `edita` o más |
+| `setAttendance` | `PUT /asistencias` | La persona misma, o un familiar `edita` o más |
+| `addNearbyToAgenda` | `POST /cerca/:id/sumar` (idempotente) | La persona misma, o un familiar `edita` o más |
+| `markSeen` | `POST /vistos { ids }` | Cada quien, sobre sus propios avisos |
+| `addActivity` / `removeActivity` | `POST /eventos`, `DELETE /eventos/:id` | Familiar `edita` |
+| `saveMedication` / `removeMedication` | `POST /medicamentos`, `PUT` / `DELETE /medicamentos/:id` | Familiar `edita` |
+| `addElder` / `updateElder` | `POST /personas`, `PUT /personas/:id` | Familiar `admin` |
+| `inviteMember` | `POST /miembros` | Familiar `admin` |
+| `selectElder`, `logout` | (solo en el dispositivo) | — |
+
+**Reglas del backend:**
+
+- `PUT /tomas` descuenta `unidadesPorToma` en una transacción con la toma y un movimiento `CONSUMO`. Repetirla no descuenta dos veces. Si no queda stock, registra la toma sin descontar. `DELETE /tomas` devuelve las unidades que esa toma descontó.
+- `PUT /medicamentos/:id` recalcula las unidades solo si cambió `stockDias`; si no, conserva las unidades (editar el nombre no borra el resto que no alcanza para un día).
+- `DELETE /medicamentos/:id` marca el remedio como inactivo para no perder su historial.
+- Toda escritura verifica que la persona, el remedio o el evento pertenezca al grupo del token.
+
+**Cambios en el front:** `src/api/client.js` (nuevo: `fetch` con URL base, token, errores y tiempo límite), `src/context/AppContext.jsx` (modo API o local, carga inicial, sincronización, acciones optimistas, reloj compartido, 401) y `src/pages/Login.jsx` (`await login`). `VITE_API_URL` se define en `frontend/.env.development` y `frontend/.env.production`, y queda fija dentro del APK al compilarlo.
+
+**Orden:** (1) endpoints con permisos, tests y deploy; (2) front; (3) prueba de punta a punta con dos ventanas (Rosa marca una toma, Camila la ve y el stock baja; permisos; reset); (4) regenerar el APK.
 
 ## 6. Estado
 
-**Fase A desplegada en `dev` (1 de octubre de 2026):** `GET /health`, `POST /auth/login`, `GET /estado`, `POST /demo/reset`.
+**Fases A, B y C desplegadas en `dev` y conectadas al front (1 de octubre de 2026).** Todas las acciones del front tienen su endpoint (ver "Integración con el front"). Quedan las de la fase D.
+
+**Verificado:**
+
+- `npm test`: 25 tests (stock, fechas, contraseñas, permisos, validación, `/estado`).
+- 45 casos contra la API desplegada: tomas con descuento y devolución de stock, idempotencia, permisos por rol (`adulto`, `ve`, `edita`, `admin`), validaciones, agenda, remedios, personas, invitaciones, avisos vistos y reloj compartido.
+- La app en un navegador con dos sesiones a la vez: Rosa toca "Ya lo tomé", el stock baja de 22 a 21 días y Camila lo ve; Camila crea una actividad y a Rosa le aparece en "Mi día" con su aviso; ambas adoptan la hora de demo del reset; un token inválido vuelve al login con aviso.
 
 - URL: `https://a43vrc3yi3.execute-api.us-east-1.amazonaws.com`
 - Stack: `hackathonUDD-dev`. Tabla: `Cerca-dev`. Función: `hackathonUDD-dev-api`.
@@ -195,6 +238,9 @@ npm run deploy         # despliega a dev
 - `npm run dev` necesita `AWS_PROFILE=hackaton` en el `.env`. Sin eso, el modo local usa el perfil `default` del computador, que puede ser de otra cuenta.
 - `POST /demo/reset` no exige sesión (el front lo ofrece en el login). Borra y recarga el grupo de demo, el catálogo "cerca de mí" y las cuentas del seed.
 - El seed agrega cuentas para Jorge (`edita`) y Marta (`ve`), con contraseña `1234`, para probar permisos.
+- **Front:** `npm run dev` y `npm run build` usan la API (`frontend/.env.development` y `.env.production`). `npm run dev:offline` y `npm run build:offline` usan solo `localStorage`, como respaldo sin internet.
+- **APK:** hay que regenerarlo (`npm run android:apk`) para que incluya la conexión; la URL de la API queda fija dentro.
+- **Hora de demo:** "Aplicar y reiniciar" en el login fija la hora para todos los dispositivos (se adopta en la siguiente sincronización, hasta 15 s). "Usar hora real" la quita solo en ese dispositivo, hasta el próximo reset.
 
 ## 7. Orden de trabajo
 
@@ -216,5 +262,4 @@ npm run deploy         # despliega a dev
 
 ## 9. Pendientes
 
-- Coordinar con el front el cambio de `AppContext` a la API.
 - Resolver la colisión de `CONTEXTO.md` y `contexto.md` (chocan en Windows y macOS).
