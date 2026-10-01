@@ -82,12 +82,18 @@ Así se mantiene la regla "toda consulta filtra por `tenantId`" y no hay consult
 
 El repo es un starter genérico, sin lógica de dominio:
 
-- **Backend:** Serverless Framework v3, Node 18, dos handlers Lambda (`/hello`, `/users`) con `serverless-offline`. JS plano; datos en un arreglo en memoria.
-- **Frontend:** React 18 + Vite + Axios, una pantalla de usuarios. Las URLs a `localhost:3000` están hardcodeadas y el proxy `/api` de Vite no se usa.
+- **Backend:** Serverless Framework v3, Node 18, `serverless-offline` y `serverless-prune-plugin` (conserva solo la última versión desplegada). Un único handler, [usersHandler.js](backend/src/handlers/users/usersHandler.js), con `POST /users`, `GET /users` y `GET /users/{idUsuario}`. Valida `nombreCompleto`, `rut` y `fechaNacimiento`, genera ids con `randomUUID` y guarda en un `Map` en memoria (se pierde entre invocaciones en Lambda). JS plano, una función por ruta.
+- **Frontend:** React 18 + Vite + Axios, una pantalla de usuarios del starter. Las URLs a `localhost:3000` están hardcodeadas y el proxy `/api` de Vite no se usa.
 - **Infra:** `docker-compose.yml` y Dockerfiles por servicio.
 - **Falta todo el dominio:** modelo, seed, lógica de stock, tres vistas, notificaciones, tests, TypeScript y persistencia real.
 
-**Problemas conocidos del starter:** sin validación en `POST /users`, ids con `users.length + 1`, dependencia `aws-lambda` innecesaria, README menciona un despliegue a S3/CloudFront que no existe.
+**Desajustes conocidos:**
+
+- El frontend envía `{ name, email }` y muestra `user.name` y `user.email`, pero el backend ahora exige `nombreCompleto`, `rut` y `fechaNacimiento`. El formulario actual responde 400. Se reemplaza al construir las vistas reales.
+- El handler de usuarios pide `rut`, que no está en nuestro modelo y choca con la minimización de datos y la regla de datos ficticios. No debe usarse como base del modelo sin alinearlo.
+- El patrón de una función por ruta en JS difiere de la decisión de una sola Lambda en TypeScript (sección 6). Hay que acordarlo con el autor del handler antes de que se replique.
+- El `README.md` aún describe el starter original (`/hello`, usuarios con name y email) y no coincide con el repo.
+- Dependencia `aws-lambda` innecesaria en `backend/package.json`.
 
 ## 6. Decisiones tecnológicas
 
