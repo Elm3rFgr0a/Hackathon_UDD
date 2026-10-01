@@ -71,6 +71,8 @@ function construirEstado(items, cercaItems, sesion) {
     version: 1,
     grupo: grupo ? { id: grupo.id, nombre: grupo.nombre } : null,
     seededAt: grupo?.seededAt ?? null,
+    // Hora de demo compartida: desfase entre la hora simulada y la real, fijado en el último reset.
+    reloj: grupo ? { offsetMs: grupo.relojOffsetMs ?? 0, desde: grupo.reseteadoEn ?? grupo.seededAt } : null,
     elders,
     members,
     medications: medsRaw.map(aMedication),

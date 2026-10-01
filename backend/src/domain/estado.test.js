@@ -60,6 +60,13 @@ test('el adulto mayor recibe solo lo suyo y sin datos de contacto de la familia'
   assert.ok(!s.activities.some((a) => a.id === 'a-musica'));
 });
 
+test('el estado incluye el reloj de demo guardado en el reset', async () => {
+  const items = await buildSeedItems(NOW, { relojOffsetMs: -5400000, reseteadoEn: '2026-10-01T17:05:00.000Z' });
+  const { grupo, cerca } = partir(items);
+  const s = construirEstado(grupo, cerca, { personaId: 'e-rosa', rol: 'adulto', grupoId: 'g-munoz' });
+  assert.deepEqual(s.reloj, { offsetMs: -5400000, desde: '2026-10-01T17:05:00.000Z' });
+});
+
 test('cada quien recibe solo sus avisos vistos', () => {
   const items = [
     { PK: 'GRUPO#g', SK: 'VISTO#u-camila#x', entidad: 'VISTO', viewerId: 'u-camila', avisoId: 'x' },

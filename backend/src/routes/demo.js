@@ -16,7 +16,12 @@ router.post('/demo/reset', asyncHandler(async (req, res) => {
   const now = raw === undefined ? new Date() : new Date(raw);
   if (Number.isNaN(now.getTime())) throw new HttpError(400, 'now debe ser una fecha ISO válida.');
 
-  const items = await buildSeedItems(now);
+  // Desfase de la hora simulada respecto de la real. Bajo un minuto se considera hora real.
+  const reseteadoEn = new Date();
+  const desfase = now.getTime() - reseteadoEn.getTime();
+  const relojOffsetMs = Math.abs(desfase) < 60 * 1000 ? 0 : desfase;
+
+  const items = await buildSeedItems(now, { relojOffsetMs, reseteadoEn: reseteadoEn.toISOString() });
   await Promise.all([
     deletePartition(grupoPK(SEED_GRUPO_ID)),
     deletePartition(CERCA_PK),
@@ -24,7 +29,7 @@ router.post('/demo/reset', asyncHandler(async (req, res) => {
   ]);
   await putMany(items);
 
-  res.json({ message: 'Datos de demostración restablecidos', registros: items.length, now: now.toISOString() });
+  res.json({ message: 'Datos de demostración restablecidos', registros: items.length, now: now.toISOString(), reloj: { offsetMs: relojOffsetMs } });
 }));
 
 module.exports = router;

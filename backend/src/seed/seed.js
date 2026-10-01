@@ -39,8 +39,11 @@ const medications = [
   { id: 'm-omeprazol', elderId: 'e-hector', nombre: 'Omeprazol', dosis: '20 mg', cantidad: '1 cápsula', indicacion: 'Antes del almuerzo', horarios: ['12:30'], stockDias: 4, responsableId: 'u-marta' },
 ];
 
-/** Construye todos los registros del seed para el instante `now`. */
-async function buildSeedItems(now = new Date()) {
+/**
+ * Construye todos los registros del seed para el instante `now`.
+ * `reloj` se guarda en el grupo para que todos los dispositivos usen la misma hora de demo.
+ */
+async function buildSeedItems(now = new Date(), { relojOffsetMs = 0, reseteadoEn = now.toISOString() } = {}) {
   const g = SEED_GRUPO_ID;
   const today = localParts(now).fecha;
   const offset = tzOffsetMs(now);
@@ -72,7 +75,10 @@ async function buildSeedItems(now = new Date()) {
 
   const items = [];
 
-  items.push({ ...keys.grupo(g), entidad: 'GRUPO', id: g, nombre: 'Familia Muñoz', seededAt: now.toISOString() });
+  items.push({
+    ...keys.grupo(g), entidad: 'GRUPO', id: g, nombre: 'Familia Muñoz',
+    seededAt: now.toISOString(), relojOffsetMs, reseteadoEn,
+  });
 
   for (const e of elders) {
     items.push({ ...keys.persona(g, e.id), entidad: 'PERSONA', ...e });
