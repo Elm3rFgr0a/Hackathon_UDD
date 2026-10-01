@@ -43,6 +43,20 @@ npm run dev
 
 El frontend correrá en `http://localhost:5173`
 
+## 📱 App "Cerca" (frontend)
+
+App móvil (React + Vite + React Router) con dos flujos según el rol de la cuenta:
+
+- **Adulto mayor** (`/adulto`): pocos botones, texto grande, un color por sección (remedios, mi día, consultas, próximos días, cerca de mí).
+- **Familiar** (`/familiar`): elige al adulto mayor que acompaña y gestiona resumen, agenda, remedios y personas.
+
+Cuentas de prueba (contraseña `1234`): `rosa@cerca.cl`, `hector@cerca.cl` (adulto mayor) y `camila@cerca.cl` (familiar).
+
+- Los datos de demostración viven en `src/data/seed.js` y se guardan en `localStorage`. En el login se pueden restablecer.
+- Las notificaciones se calculan en `src/lib/notifications.js` (1 h antes y 1 h después de cada actividad, remedios, consultas, stock bajo, etc.).
+- Para probarlas, simula la hora con `?hora=13:02` en la URL. Con `?hora=real` vuelve a la hora real.
+- Al añadir un adulto mayor se llama a `POST /users` del backend; si la API no responde, se guarda solo en el navegador.
+
 ## Deployment
 
 ### Backend - AWS Lambda

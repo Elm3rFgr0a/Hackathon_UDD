@@ -1,0 +1,11 @@
+{
+  "name": "Cerca",
+  "short_name": "Cerca",
+  "description": "Remedios, agenda y acompañamiento familiar para personas mayores.",
+  "lang": "es",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FBF8F2",
+  "theme_color": "#0B5F66",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

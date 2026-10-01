@@ -8,8 +8,20 @@ provider:
   region: us-east-1
   environment:
     ENVIRONMENT: ${self:provider.stage}
+    USUARIOS_TABLE: ${self:custom.usuariosTable}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:PutItem
+            - dynamodb:GetItem
+            - dynamodb:Scan
+          Resource:
+            - !GetAtt UsuariosTable.Arn
 
 custom:
+  usuariosTable: Usuarios-${sls:stage}
   prune:
     automatic: true
     number: 1
@@ -35,3 +47,17 @@ plugins:
   - serverless-offline
   - serverless-dotenv-plugin
   - serverless-prune-plugin
+
+resources:
+  Resources:
+    UsuariosTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: ${self:custom.usuariosTable}
+        BillingMode: PAY_PER_REQUEST
+        AttributeDefinitions:
+          - AttributeName: idUsuario
+            AttributeType: S
+        KeySchema:
+          - AttributeName: idUsuario
+            KeyType: HASH
